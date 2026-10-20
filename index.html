@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced IEMIS & Exam Management Portal - 2083 BS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Import/Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;600;700;800&display=swap');
+        body { font-family: 'Mukta', sans-serif; background-color: #f8fafc; }
+        .glass-header { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- AUTO SAVE TOAST NOTIFICATION -->
+    <div id="saveToast" class="fixed bottom-5 right-5 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold hidden z-50 flex items-center gap-2">
+        <i class="fa-solid fa-cloud-arrow-up text-lg"></i> <span id="toastMsg">Auto Saved Successfully!</span>
+    </div>
+
+    <!-- LOGIN MODAL WITH ROLE SELECT -->
+    <div id="loginScreen" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6 border border-slate-200">
+            <div class="text-center space-y-2">
+                <!-- SCHOOL LOGO DISPLAY -->
+                <div class="relative w-20 h-20 mx-auto">
+                    <img id="loginSchoolLogo" src="https://via.placeholder.com/80?text=Logo" alt="School Logo" class="w-20 h-20 rounded-2xl object-cover border-2 border-indigo-500 shadow-md">
+                </div>
+                <h2 id="loginSchoolTitle" class="text-xl font-extrabold text-slate-800">Shree Mahadevsthan Sec. School</h2>
+                <p class="text-xs text-indigo-600 font-bold">IEMIS & Exam Management Portal (2083 BS)</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-600">User Role / भूमिका</label>
+                    <select id="loginRole" class="w-full p-3 rounded-xl border text-sm mt-1 bg-slate-50 font-bold text-slate-700">
+                        <option value="admin">System Admin / Headteacher</option>
+                        <option value="teacher">Teacher Access</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-600">Username / ID</label>
+                    <input type="text" id="loginUsername" value="admin" required class="w-full p-3 rounded-xl border text-sm mt-1">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-slate-600">Password</label>
+                        <button type="button" onclick="showForgotModal()" class="text-xs text-indigo-600 font-bold hover:underline">Forgot Password?</button>
+                    </div>
+                    <input type="password" id="loginPassword" value="admin123" required class="w-full p-3 rounded-xl border text-sm mt-1">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg text-sm transition">
+                    Sign In / लग-इन गर्नुहोस्
+                </button>
+            </form>
+
+            <div class="bg-indigo-50 p-3 rounded-xl text-xs space-y-1 border border-indigo-100">
+                <p class="font-bold text-indigo-800">Default Credentials:</p>
+                <p>• <b>Admin:</b> admin / admin123</p>
+                <p>• <b>Teacher:</b> T-101 / pass123</p>
+            </div>
+            <div class="text-center text-[11px] text-slate-400 border-t pt-3">
+                Designed & Developed by <span class="font-bold text-slate-700">Babukrishna Khanal</span> | Dhading, Nepal
+            </div>
+        </div>
+    </div>
+
+    <!-- OTP RESET PASSWORD MODAL -->
+    <div id="forgotModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-2xl">
+            <h3 class="text-lg font-bold text-slate-800 border-b pb-2">Reset Password (OTP Verification)</h3>
+            <div id="otpStep1" class="space-y-3 text-xs">
+                <label class="font-bold text-slate-600">Mobile Number or Email</label>
+                <input type="text" id="resetContact" placeholder="98XXXXXXXX / email@domain.com" class="w-full p-2.5 border rounded-xl">
+                <button type="button" onclick="sendOTP()" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold">Send OTP Code</button>
+            </div>
+            <div id="otpStep2" class="space-y-3 text-xs hidden">
+                <p class="text-emerald-600 font-bold">OTP Send Kiya Gaya! (Demo Code: <span id="demoOtp" class="underline font-black text-indigo-700">1234</span>)</p>
+                <input type="text" id="inputOtp" placeholder="Enter OTP" class="w-full p-2.5 border rounded-xl text-center font-mono font-bold text-lg">
+                <input type="password" id="newResetPassword" placeholder="New Password" class="w-full p-2.5 border rounded-xl">
+                <button type="button" onclick="verifyAndReset()" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-bold">Reset Password</button>
+            </div>
+            <div class="text-right border-t pt-2">
+                <button type="button" onclick="closeForgotModal()" class="px-4 py-1.5 bg-slate-200 text-xs rounded-xl font-bold">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN SYSTEM APP -->
+    <div id="mainApp" class="hidden flex-col min-h-screen">
+
+        <!-- HEADER NAVIGATION BAR -->
+        <header class="glass-header text-white sticky top-0 z-40 shadow-lg no-print">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center flex-wrap gap-2">
+                <div class="flex items-center gap-3">
+                    <img id="navHeaderLogo" src="https://via.placeholder.com/40?text=Logo" alt="Logo" class="w-10 h-10 rounded-xl object-cover border border-indigo-400">
+                    <div>
+                        <h1 id="navSchoolName" class="font-bold text-base leading-tight">Shree Mahadevsthan Sec. School</h1>
+                        <p class="text-[11px] text-indigo-300">IEMIS & Exam Management Portal (2083 BS)</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- LANGUAGE TOGGLE BUTTON -->
+                    <button onclick="toggleLanguage()" class="bg-indigo-800 hover:bg-indigo-700 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-500/50 flex items-center gap-2 transition">
+                        <i class="fa-solid fa-language text-base text-yellow-400"></i>
+                        <span id="langLabel">Language: NP</span>
+                    </button>
+                    <span id="roleBadge" class="px-3 py-1 bg-indigo-500/20 text-indigo-200 text-xs font-bold rounded-full border border-indigo-400/30 uppercase">
+                        ADMIN MODE
+                    </span>
+                    <button onclick="handleLogout()" class="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-500/30 transition">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full grid grid-cols-1 md:grid-cols-4 gap-6 no-print">
+
+            <!-- SIDEBAR NAVIGATION MENU -->
+            <aside class="md:col-span-1 space-y-4">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border space-y-2">
+                    <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1" data-key="nav_menu">नेभिगेसन मेनु</div>
+                    <button onclick="showTab('dashboard')" id="nav-dashboard" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 bg-indigo-50 text-indigo-700 transition">
+                        <i class="fa-solid fa-chart-pie w-4"></i> <span data-key="m_dashboard">ड्यासबोर्ड</span>
+                    </button>
+                    <button onclick="showTab('settings')" id="nav-settings" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                        <i class="fa-solid fa-sliders w-4"></i> <span data-key="m_admin">एडमिन कन्ट्रोल</span>
+                    </button>
+                    <button onclick="showTab('teachers')" id="nav-teachers" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                        <i class="fa-solid fa-chalkboard-user w-4"></i> <span data-key="m_teachers">शिक्षक व्यवस्थापन</span>
+                    </button>
+                    <button onclick="showTab('students')" id="nav-students" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                        <i class="fa-solid fa-user-graduate w-4"></i> <span data-key="m_students">विद्यार्थी व्यवस्थापन</span>
+                    </button>
+                    <button onclick="showTab('attendance')" id="nav-attendance" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                        <i class="fa-solid fa-calendar-check w-4"></i> <span data-key="m_attendance">दैनिक हाजिरी</span>
+                    </button>
+                    <button onclick="showTab('marks')" id="nav-marks" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                        <i class="fa-solid fa-pen-to-square w-4"></i> <span data-key="m_marks">अङ्क प्रविष्टि म्याट्रिक्स</span>
+                    </button>
+                    <button onclick="showTab('reports')" id="nav-reports" class="w-full text-left px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                        <i class="fa-solid fa-file-invoice w-4"></i> <span data-key="m_reports">रिपोर्ट तथा ग्रेडसिट</span>
+                    </button>
+                </div>
+
+                <div class="bg-gradient-to-br from-indigo-700 to-slate-900 text-white rounded-2xl p-4 shadow-lg text-center space-y-1.5">
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto text-lg font-bold">
+                        <i class="fa-solid fa-code"></i>
+                    </div>
+                    <h4 class="font-bold text-xs">बाबुकृष्ण खनाल</h4>
+                    <p class="text-[10px] text-indigo-200">Secondary Math Teacher & System Developer</p>
+                    <p class="text-[9px] text-indigo-300">धुनीबेँसी, धादिङ, नेपाल</p>
+                </div>
+            </aside>
+
+            <!-- MAIN WORKSPACE DISPLAY -->
+            <main class="md:col-span-3 space-y-6">
+
+                <!-- TAB 1: DASHBOARD -->
+                <section id="tab-dashboard" class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm flex justify-between items-center">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800" data-key="dash_title">शैक्षणिक ड्यासबोर्ड (२०८३)</h2>
+                            <p class="text-xs text-slate-500" data-key="dash_sub">IEMIS र परीक्षा व्यवस्थापन प्रणाली</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase" data-key="total_students">कुल विद्यार्थी</p>
+                            <h3 id="statTotalStudents" class="text-xl font-bold text-slate-800 mt-1">0</h3>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase" data-key="total_teachers">कुल शिक्षक</p>
+                            <h3 id="statTotalTeachers" class="text-xl font-bold text-slate-800 mt-1">0</h3>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase" data-key="attendance_rate">हाजिरी दर</p>
+                            <h3 class="text-xl font-bold text-emerald-600 mt-1">98%</h3>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase" data-key="active_exam">सञ्चालित परीक्षा</p>
+                            <h3 id="statActiveExam" class="text-xs font-bold text-indigo-600 mt-1">First Term</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm">
+                        <h4 class="font-bold text-sm mb-4" data-key="performance_overview">शैक्षणिक नतिजा अवलोकन</h4>
+                        <div class="h-64"><canvas id="perfChart"></canvas></div>
+                    </div>
+                </section>
+
+                <!-- TAB 2: ADMIN CONTROL PANEL (DYNAMIC SUBJECT CONFIG & PHOTO UPLOAD) -->
+                <section id="tab-settings" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm space-y-6">
+                        <h2 class="text-lg font-bold border-b pb-2" data-key="admin_panel_title">एडमिन कन्ट्रोल तथा विषय सेटअप</h2>
+                        
+                        <!-- School Photo / Logo Upload Box -->
+                        <div class="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between gap-4 flex-wrap">
+                            <div class="flex items-center gap-4">
+                                <img id="adminLogoPreview" src="https://via.placeholder.com/60?text=Logo" alt="School Logo" class="w-16 h-16 rounded-xl object-cover border-2 border-indigo-500 shadow-sm">
+                                <div>
+                                    <h4 class="font-bold text-sm text-slate-800">Upload School Logo / Photo</h4>
+                                    <p class="text-xs text-slate-500">विद्यालयको लोगो वा फोटो अपलोड गर्नुहोस् (PNG, JPG)</p>
+                                </div>
+                            </div>
+                            <label class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition shadow-md">
+                                <i class="fa-solid fa-upload mr-1"></i> Choose Photo
+                                <input type="file" accept="image/*" onchange="uploadSchoolPhoto(event)" class="hidden">
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                            <div>
+                                <label class="font-bold text-slate-600" data-key="sch_name">विद्यालयको नाम</label>
+                                <input type="text" id="setSchoolName" value="Shree Mahadevsthan Sec. School" class="w-full p-2.5 border rounded-xl mt-1 font-bold" oninput="autoSaveSettings()">
+                            </div>
+                            <div>
+                                <label class="font-bold text-slate-600" data-key="sch_address">ठेगाना</label>
+                                <input type="text" id="setSchoolAddress" value="Dhunibesi-5, Kumaikhola, Dhading" class="w-full p-2.5 border rounded-xl mt-1 font-bold" oninput="autoSaveSettings()">
+                            </div>
+                            <div>
+                                <label class="font-bold text-slate-600" data-key="acad_year">शैक्षणिक वर्ष</label>
+                                <input type="text" id="setAcademicYear" value="2083 BS" class="w-full p-2.5 border rounded-xl mt-1 font-bold" oninput="autoSaveSettings()">
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Subject Management Form -->
+                        <div class="p-4 bg-slate-50 rounded-2xl border space-y-3 text-xs">
+                            <h3 class="font-bold text-slate-800" data-key="add_subj_config">विषय व्यवस्थापन (Weightage / Full & Pass Marks / Credit Hour)</h3>
+                            <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                                <div>
+                                    <label class="font-bold" data-key="lbl_class">कक्षा</label>
+                                    <select id="cfgClass" class="w-full p-2 border rounded-xl mt-1 classSelect font-bold" onchange="renderSubjectConfigTable()"></select>
+                                </div>
+                                <div>
+                                    <label class="font-bold" data-key="lbl_subj">विषयको नाम</label>
+                                    <input type="text" id="cfgSubjName" placeholder="e.g. Mathematics" class="w-full p-2 border rounded-xl mt-1">
+                                </div>
+                                <div>
+                                    <label class="font-bold" data-key="lbl_credit">क्रेडिट आवर</label>
+                                    <input type="number" id="cfgCredit" value="4.0" step="0.5" class="w-full p-2 border rounded-xl mt-1 font-bold">
+                                </div>
+                                <div>
+                                    <label class="font-bold" data-key="lbl_theory">सिद्धान्त (FM/PM)</label>
+                                    <div class="flex gap-1 mt-1">
+                                        <input type="number" id="cfgThFM" value="75" placeholder="FM" class="w-1/2 p-2 border rounded-xl text-center">
+                                        <input type="number" id="cfgThPM" value="26.25" placeholder="PM" class="w-1/2 p-2 border rounded-xl text-center">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="font-bold" data-key="lbl_internal">आन्तरिक (FM/PM)</label>
+                                    <div class="flex gap-1 mt-1">
+                                        <input type="number" id="cfgIntFM" value="25" placeholder="FM" class="w-1/2 p-2 border rounded-xl text-center">
+                                        <input type="number" id="cfgIntPM" value="10" placeholder="PM" class="w-1/2 p-2 border rounded-xl text-center">
+                                    </div>
+                                </div>
+                                <div class="flex items-end">
+                                    <button type="button" onclick="saveSubjectConfig()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl transition" data-key="btn_add_subj">विषय थप्नुहोस्</button>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto bg-white rounded-xl border mt-3">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="bg-slate-100 border-b font-bold">
+                                        <tr>
+                                            <th class="p-2.5" data-key="th_subj">विषय</th>
+                                            <th class="p-2.5" data-key="th_credit">क्रेडिट</th>
+                                            <th class="p-2.5" data-key="th_theory">सिद्धान्त (FM/PM)</th>
+                                            <th class="p-2.5" data-key="th_internal">आन्तरिक (FM/PM)</th>
+                                            <th class="p-2.5 text-center" data-key="th_action">कार्य</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="subjCfgBody" class="divide-y"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 3: MANAGE TEACHERS -->
+                <section id="tab-teachers" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm flex flex-wrap justify-between items-center gap-4">
+                        <h2 class="text-lg font-bold text-slate-800" data-key="m_teachers">शिक्षक व्यवस्थापन</h2>
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <button onclick="downloadTeacherSample()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl border font-bold"><i class="fa-solid fa-download"></i> <span data-key="sample_excel">नमूना एक्सेल</span></button>
+                            <label class="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl font-bold cursor-pointer"><i class="fa-solid fa-file-excel"></i> <span data-key="import_excel">एक्सेल आयात</span><input type="file" accept=".xlsx,.xls" onchange="importTeachersExcel(event)" class="hidden"></label>
+                            <button onclick="openTeacherModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl font-bold"><i class="fa-solid fa-plus"></i> <span data-key="add_teacher">शिक्षक थप्नुहोस्</span></button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border shadow-sm overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 border-b font-bold uppercase">
+                                <tr>
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3" data-key="th_name">नाम</th>
+                                    <th class="p-3" data-key="th_contact">सम्पर्क</th>
+                                    <th class="p-3" data-key="th_assigned_subj">जिम्मेवारी दिइएका विषयहरू</th>
+                                    <th class="p-3 text-center" data-key="th_action">कार्य</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teacherBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TAB 4: MANAGE STUDENTS (IEMIS) -->
+                <section id="tab-students" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm flex flex-wrap justify-between items-center gap-4">
+                        <h2 class="text-lg font-bold text-slate-800" data-key="m_students">विद्यार्थी व्यवस्थापन (IEMIS)</h2>
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <button onclick="downloadStudentSample()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl border font-bold"><i class="fa-solid fa-download"></i> <span data-key="sample_excel">नमूना एक्सेल</span></button>
+                            <label class="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl font-bold cursor-pointer"><i class="fa-solid fa-file-excel"></i> <span data-key="import_excel">एक्सेल आयात</span><input type="file" accept=".xlsx,.xls" onchange="importStudentsExcel(event)" class="hidden"></label>
+                            <button onclick="exportStudentsExcel()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl font-bold"><i class="fa-solid fa-file-export"></i> Export Excel</button>
+                            <button onclick="openStudentModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl font-bold"><i class="fa-solid fa-plus"></i> <span data-key="add_student">विद्यार्थी थप्नुहोस्</span></button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border shadow-sm overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 border-b font-bold uppercase">
+                                <tr>
+                                    <th class="p-3">IEMIS Code</th>
+                                    <th class="p-3">Roll</th>
+                                    <th class="p-3" data-key="th_name">नाम</th>
+                                    <th class="p-3" data-key="lbl_class">कक्षा</th>
+                                    <th class="p-3 text-center" data-key="th_action">कार्य</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TAB 5: DAILY ATTENDANCE -->
+                <section id="tab-attendance" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
+                        <h2 class="text-lg font-bold text-slate-800" data-key="m_attendance">दैनिक हाजिरी</h2>
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <label class="font-bold" data-key="lbl_class">कक्षा</label>
+                                <select id="attClass" class="w-full p-2.5 border rounded-xl mt-1 classSelect font-bold" onchange="renderAttendanceList()"></select>
+                            </div>
+                            <div>
+                                <label class="font-bold">मिति (BS)</label>
+                                <input type="text" id="attDate" value="2083-01-15" class="w-full p-2.5 border rounded-xl mt-1 font-bold">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2" id="attContainer"></div>
+                </section>
+
+                <!-- TAB 6: MARKS ENTRY MATRIX -->
+                <section id="tab-marks" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
+                        <div class="flex justify-between items-center flex-wrap gap-2">
+                            <h2 class="text-lg font-bold text-slate-800" data-key="m_marks">अङ्क प्रविष्टि म्याट्रिक्स</h2>
+                            <div class="flex gap-2 text-xs">
+                                <button onclick="downloadMarksSample()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl border font-bold"><i class="fa-solid fa-download"></i> नमूना एक्सेल</button>
+                                <label class="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl font-bold cursor-pointer"><i class="fa-solid fa-file-excel"></i> Import Marks<input type="file" accept=".xlsx,.xls" onchange="importMarksExcel(event)" class="hidden"></label>
+                                <button onclick="exportMarksExcel()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl font-bold"><i class="fa-solid fa-file-export"></i> Export Marks</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <label class="font-bold" data-key="lbl_class">कक्षा</label>
+                                <select id="markClass" class="w-full p-2.5 border rounded-xl mt-1 classSelect font-bold" onchange="renderMarksMatrix()"></select>
+                            </div>
+                            <div>
+                                <label class="font-bold">परीक्षा</label>
+                                <select id="markTerm" class="w-full p-2.5 border rounded-xl mt-1 font-bold text-indigo-700 bg-indigo-50" onchange="renderMarksMatrix()">
+                                    <option value="First Term">First Terminal Exam</option>
+                                    <option value="Second Term">Second Terminal Exam</option>
+                                    <option value="Final Exam">Final Examination</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border shadow-sm overflow-x-auto p-4">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead id="marksHeader" class="bg-slate-100 border-b font-bold"></thead>
+                            <tbody id="marksBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TAB 7: REPORTS & CDC GRADE SHEETS -->
+                <section id="tab-reports" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border shadow-sm space-y-4">
+                        <h2 class="text-lg font-bold text-slate-800" data-key="m_reports">रिपोर्ट तथा ग्रेडसिट</h2>
+                        <div class="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <label class="font-bold">विद्यार्थी छान्नुहोस्</label>
+                                <select id="reportStudent" class="w-full p-2.5 border rounded-xl mt-1 font-bold"></select>
+                            </div>
+                            <div>
+                                <label class="font-bold">परीक्षा</label>
+                                <select id="reportTerm" class="w-full p-2.5 border rounded-xl mt-1 font-bold">
+                                    <option value="First Term">First Terminal Exam</option>
+                                    <option value="Second Term">Second Terminal Exam</option>
+                                    <option value="Final Exam">Final Examination</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button onclick="generateGradeSheet()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-xs transition shadow-md" data-key="btn_print">ग्रेडसिट प्रिन्ट गर्नुहोस्</button>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <footer class="bg-slate-900 text-slate-400 text-xs py-4 text-center mt-auto border-t border-slate-800 no-print">
+            Designed & Developed with ❤️ by <span class="text-indigo-400 font-bold">Babukrishna Khanal</span> | Dhading, Nepal
+        </footer>
+    </div>
+
+    <!-- MODAL TEACHER -->
+    <div id="teacherModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 text-xs shadow-2xl">
+            <h3 class="font-bold text-sm border-b pb-2">Add/Edit Teacher Profile</h3>
+            <input type="hidden" id="editTIdx" value="-1">
+            <input type="text" id="tID" placeholder="Teacher ID (e.g. T-102)" class="w-full p-2.5 border rounded-xl font-mono">
+            <input type="password" id="tPass" value="pass123" placeholder="Password" class="w-full p-2.5 border rounded-xl">
+            <input type="text" id="tName" placeholder="Full Name" class="w-full p-2.5 border rounded-xl">
+            <input type="text" id="tContact" placeholder="Contact Number" class="w-full p-2.5 border rounded-xl">
+            <div>
+                <label class="font-bold">Assigned Subjects (Ctrl थिचेर Multi-select गर्नुहोस्)</label>
+                <select id="tSubjs" multiple class="w-full p-2 border rounded-xl h-24 mt-1 font-semibold">
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Science & Tech">Science & Tech</option>
+                    <option value="English">English</option>
+                    <option value="Nepali">Nepali</option>
+                    <option value="Social Studies">Social Studies</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onclick="closeTeacherModal()" class="px-4 py-2 bg-slate-200 rounded-xl font-bold">Cancel</button>
+                <button type="button" onclick="saveTeacher()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">Save Teacher</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL STUDENT -->
+    <div id="studentModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 text-xs shadow-2xl">
+            <h3 class="font-bold text-sm border-b pb-2">Add/Edit Student Profile</h3>
+            <input type="hidden" id="editSIdx" value="-1">
+            <input type="text" id="sIemis" placeholder="IEMIS Code" class="w-full p-2.5 border rounded-xl font-mono">
+            <input type="text" id="sRoll" placeholder="Roll Number" class="w-full p-2.5 border rounded-xl">
+            <input type="text" id="sName" placeholder="Student Full Name" class="w-full p-2.5 border rounded-xl">
+            <select id="sClass" class="w-full p-2.5 border rounded-xl classSelect font-bold"></select>
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onclick="closeStudentModal()" class="px-4 py-2 bg-slate-200 rounded-xl font-bold">Cancel</button>
+                <button type="button" onclick="saveStudent()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">Save Student</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINTABLE CDC PROGRESS REPORT CARD -->
+    <div id="printArea" class="print-only p-8 bg-white max-w-4xl mx-auto border-2 border-slate-800"></div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+        const langDict = {
+            np: {
+                nav_menu: "नेभिगेसन मेनु", m_dashboard: "ड्यासबोर्ड", m_admin: "एडमिन कन्ट्रोल", m_teachers: "शिक्षक व्यवस्थापन",
+                m_students: "विद्यार्थी व्यवस्थापन", m_attendance: "दैनिक हाजिरी", m_marks: "अङ्क प्रविष्टि म्याट्रिक्स",
+                m_reports: "रिपोर्ट तथा ग्रेडसिट", dash_title: "शैक्षणिक ड्यासबोर्ड (२०८३)", dash_sub: "IEMIS र परीक्षा व्यवस्थापन प्रणाली",
+                total_students: "कुल विद्यार्थी", total_teachers: "कुल शिक्षक", attendance_rate: "हाजिरी दर", active_exam: "सञ्चालित परीक्षा",
+                performance_overview: "शैक्षणिक नतिजा अवलोकन", admin_panel_title: "एडमिन कन्ट्रोल तथा विषय सेटअप", sch_name: "विद्यालयको नाम",
+                sch_address: "ठेगाना", acad_year: "शैक्षणिक वर्ष", add_subj_config: "विषय व्यवस्थापन (Weightage / Full & Pass Marks / Credit Hour)",
+                lbl_class: "कक्षा", lbl_subj: "विषयको नाम", lbl_credit: "क्रेडिट आवर", lbl_theory: "सिद्धान्त (FM/PM)",
+                lbl_internal: "आन्तरिक (FM/PM)", btn_add_subj: "विषय थप्नुहोस्", th_subj: "विषय", th_credit: "क्रेडिट",
+                th_theory: "सिद्धान्त (FM/PM)", th_internal: "आन्तरिक (FM/PM)", th_action: "कार्य", th_name: "नाम", th_contact: "सम्पर्क",
+                th_assigned_subj: "जिम्मेवारी दिइएका विषयहरू", sample_excel: "नमूना एक्सेल", import_excel: "एक्सेल आयात", add_teacher: "शिक्षक थप्नुहोस्",
+                add_student: "विद्यार्थी थप्नुहोस्", btn_print: "ग्रेडसिट प्रिन्ट गर्नुहोस्"
+            },
+            en: {
+                nav_menu: "Navigation Menu", m_dashboard: "Dashboard", m_admin: "Admin Panel", m_teachers: "Manage Teachers",
+                m_students: "Manage Students", m_attendance: "Daily Attendance", m_marks: "Marks Entry Matrix",
+                m_reports: "Reports & Grade Sheets", dash_title: "Academic Dashboard (2083 BS)", dash_sub: "IEMIS & Exam Management Portal",
+                total_students: "Total Students", total_teachers: "Total Teachers", attendance_rate: "Attendance", active_exam: "Active Exam",
+                performance_overview: "Performance Overview", admin_panel_title: "Admin Control & Subject Setup", sch_name: "School Name",
+                sch_address: "Address", acad_year: "Academic Year", add_subj_config: "Configure Subject (Credit Hours, Weightage, FM/PM)",
+                lbl_class: "Class", lbl_subj: "Subject Name", lbl_credit: "Credit Hour", lbl_theory: "Theory (FM/PM)",
+                lbl_internal: "Internal (FM/PM)", btn_add_subj: "Add Subject", th_subj: "Subject", th_credit: "Credit",
+                th_theory: "Theory (FM/PM)", th_internal: "Internal (FM/PM)", th_action: "Action", th_name: "Name", th_contact: "Contact",
+                th_assigned_subj: "Assigned Subjects", sample_excel: "Sample Excel", import_excel: "Import Excel", add_teacher: "Add Teacher",
+                add_student: "Add Student", btn_print: "Print Grade Sheet"
+            }
+        };
+
+        let currentLang = "np";
+
+        function toggleLanguage() {
+            currentLang = currentLang === "np" ? "en" : "np";
+            document.getElementById('langLabel').innerText = "Language: " + currentLang.toUpperCase();
+            
+            document.querySelectorAll('[data-key]').forEach(el => {
+                let key = el.getAttribute('data-key');
+                if (langDict[currentLang][key]) {
+                    el.innerText = langDict[currentLang][key];
+                }
+            });
+        }
+
+        let settings = JSON.parse(localStorage.getItem('settings')) || {
+            schoolName: "Shree Mahadevsthan Sec. School",
+            schoolAddress: "Dhunibesi-5, Kumaikhola, Dhading",
+            academicYear: "2083 BS",
+            schoolLogo: "https://via.placeholder.com/80?text=School",
+            classes: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+            classSubjects: {
+                "8": [
+                    { name: "Mathematics", credit: 4.0, thFM: 75, thPM: 26.25, intFM: 25, intPM: 10 },
+                    { name: "Science & Tech", credit: 4.0, thFM: 75, thPM: 26.25, intFM: 25, intPM: 10 },
+                    { name: "English", credit: 4.0, thFM: 75, thPM: 26.25, intFM: 25, intPM: 10 }
+                ]
+            }
+        };
+
+        let teachers = JSON.parse(localStorage.getItem('teachers')) || [
+            { id: 'admin', pass: 'admin123', name: 'Headteacher Admin', contact: '9841000000', subjects: [] },
+            { id: 'T-101', pass: 'pass123', name: 'Babukrishna Khanal', contact: '9841000001', subjects: ['Mathematics', 'Science & Tech'] }
+        ];
+
+        let students = JSON.parse(localStorage.getItem('students')) || [
+            { iemis: '1002341', roll: '1', name: 'Aarav Sharma', class: '8' },
+            { iemis: '1002342', roll: '2', name: 'Sita Nepal', class: '8' }
+        ];
+
+        let marks = JSON.parse(localStorage.getItem('marks')) || {};
+        let attendance = JSON.parse(localStorage.getItem('attendance')) || {};
+        let currentUser = null;
+        let generatedOtp = null;
+
+        function showToast(msg = "Auto Saved!") {
+            let toast = document.getElementById('saveToast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => { toast.classList.add('hidden'); }, 1500);
+        }
+
+        function uploadSchoolPhoto(e) {
+            let file = e.target.files[0];
+            if(file) {
+                let reader = new FileReader();
+                reader.onload = function(evt) {
+                    settings.schoolLogo = evt.target.result;
+                    localStorage.setItem('settings', JSON.stringify(settings));
+                    updateSchoolLogos();
+                    showToast('School Photo Uploaded!');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function updateSchoolLogos() {
+            let logo = settings.schoolLogo || "https://via.placeholder.com/80?text=School";
+            document.getElementById('loginSchoolLogo').src = logo;
+            document.getElementById('navHeaderLogo').src = logo;
+            document.getElementById('adminLogoPreview').src = logo;
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            let u = document.getElementById('loginUsername').value.trim();
+            let p = document.getElementById('loginPassword').value.trim();
+            let r = document.getElementById('loginRole').value;
+
+            if (r === 'admin' && u === 'admin' && p === 'admin123') {
+                currentUser = { role: 'admin', name: 'Admin' };
+                initApp();
+                return;
+            }
+
+            let t = teachers.find(teacher => teacher.id.toLowerCase() === u.toLowerCase() && teacher.pass === p);
+            if (t) {
+                currentUser = { role: r, ...t };
+                initApp();
+            } else {
+                alert('Invalid Username or Password!');
+            }
+        }
+
+        function initApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('flex');
+            document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase() + ' MODE';
+
+            updateSchoolLogos();
+            populateClassDropdowns();
+            renderTeachers();
+            renderStudents();
+            renderSubjectConfigTable();
+            initPerfChart();
+            showTab('dashboard');
+        }
+
+        function handleLogout() {
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        }
+
+        function showForgotModal() { document.getElementById('forgotModal').classList.remove('hidden'); }
+        function closeForgotModal() { document.getElementById('forgotModal').classList.add('hidden'); }
+
+        function sendOTP() {
+            let contact = document.getElementById('resetContact').value.trim();
+            if(!contact) return alert('Enter contact details!');
+            generatedOtp = "1234";
+            document.getElementById('otpStep1').classList.add('hidden');
+            document.getElementById('otpStep2').classList.remove('hidden');
+        }
+
+        function verifyAndReset() {
+            let otp = document.getElementById('inputOtp').value.trim();
+            let newP = document.getElementById('newResetPassword').value.trim();
+            if (otp !== generatedOtp) return alert('Invalid OTP!');
+            if (!newP) return alert('Enter new password!');
+
+            let user = teachers.find(t => t.id === 'admin' || t.contact === document.getElementById('resetContact').value.trim());
+            if (user) {
+                user.pass = newP;
+                localStorage.setItem('teachers', JSON.stringify(teachers));
+                alert('Password reset successful!');
+                closeForgotModal();
+            }
+        }
+
+        function populateClassDropdowns() {
+            let options = settings.classes.map(c => `<option value="${c}">Grade ${c}</option>`).join('');
+            document.querySelectorAll('.classSelect').forEach(s => s.innerHTML = options);
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            if(tab === 'teachers') renderTeachers();
+            if(tab === 'students') renderStudents();
+            if(tab === 'attendance') renderAttendanceList();
+            if(tab === 'marks') renderMarksMatrix();
+            if(tab === 'reports') populateStudentReportSelect();
+        }
+
+        function renderSubjectConfigTable() {
+            let cls = document.getElementById('cfgClass').value || "8";
+            let subjs = settings.classSubjects[cls] || [];
+            let tbody = document.getElementById('subjCfgBody');
+            tbody.innerHTML = subjs.map((s, idx) => `
+                <tr>
+                    <td class="p-2.5 font-bold">${s.name}</td>
+                    <td class="p-2.5 font-bold">${s.credit}</td>
+                    <td class="p-2.5">${s.thFM} / ${s.thPM}</td>
+                    <td class="p-2.5">${s.intFM} / ${s.intPM}</td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="deleteSubjectConfig('${cls}', ${idx})" class="text-red-600 font-bold hover:underline"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function saveSubjectConfig() {
+            let cls = document.getElementById('cfgClass').value;
+            let name = document.getElementById('cfgSubjName').value.trim();
+            let credit = parseFloat(document.getElementById('cfgCredit').value) || 4.0;
+            let thFM = parseFloat(document.getElementById('cfgThFM').value) || 75;
+            let thPM = parseFloat(document.getElementById('cfgThPM').value) || 26.25;
+            let intFM = parseFloat(document.getElementById('cfgIntFM').value) || 25;
+            let intPM = parseFloat(document.getElementById('cfgIntPM').value) || 10;
+
+            if(!name) return alert('Enter subject name!');
+
+            if(!settings.classSubjects[cls]) settings.classSubjects[cls] = [];
+            settings.classSubjects[cls].push({ name, credit, thFM, thPM, intFM, intPM });
+            localStorage.setItem('settings', JSON.stringify(settings));
+
+            document.getElementById('cfgSubjName').value = '';
+            renderSubjectConfigTable();
+            showToast('Subject Configured!');
+        }
+
+        function deleteSubjectConfig(cls, idx) {
+            settings.classSubjects[cls].splice(idx, 1);
+            localStorage.setItem('settings', JSON.stringify(settings));
+            renderSubjectConfigTable();
+            showToast('Subject Deleted!');
+        }
+
+        function renderMarksMatrix() {
+            let cls = document.getElementById('markClass').value || "8";
+            let term = document.getElementById('markTerm').value;
+            let subjs = settings.classSubjects[cls] || [];
+            let classStudents = students.filter(s => s.class === cls);
+
+            let header = `<tr><th class="p-2.5 border">Roll</th><th class="p-2.5 border">Student Name</th>`;
+            subjs.forEach(s => {
+                header += `<th class="p-2.5 border text-center" colspan="2">${s.name}<br><span class="text-[9px] font-normal text-slate-400">INT(${s.intFM}) | TH(${s.thFM})</span></th>`;
+            });
+            header += `</tr>`;
+            document.getElementById('marksHeader').innerHTML = header;
+
+            let tbody = document.getElementById('marksBody');
+            tbody.innerHTML = classStudents.map(s => {
+                let row = `<tr><td class="p-2 border font-bold text-center">${s.roll}</td><td class="p-2 border font-semibold">${s.name}</td>`;
+                subjs.forEach(sub => {
+                    let m = (marks[term] && marks[term][s.iemis] && marks[term][s.iemis][sub.name]) || { internal: 0, theory: 0 };
+                    let isEditable = currentUser.role === 'admin' || (currentUser.subjects && currentUser.subjects.includes(sub.name));
+
+                    row += `
+                        <td class="p-1 border text-center">
+                            <input type="number" value="${m.internal}" ${!isEditable ? 'disabled class="bg-slate-100 p-1 w-12 text-center text-xs opacity-50"' : 'class="p-1 border rounded w-12 text-center text-xs bg-emerald-50 font-bold"'} oninput="autoSaveMark('${term}', '${s.iemis}', '${sub.name}', 'internal', this.value)">
+                        </td>
+                        <td class="p-1 border text-center">
+                            <input type="number" value="${m.theory}" ${!isEditable ? 'disabled class="bg-slate-100 p-1 w-12 text-center text-xs opacity-50"' : 'class="p-1 border rounded w-12 text-center text-xs bg-indigo-50 font-bold"'} oninput="autoSaveMark('${term}', '${s.iemis}', '${sub.name}', 'theory', this.value)">
+                        </td>
+                    `;
+                });
+                row += `</tr>`;
+                return row;
+            }).join('');
+        }
+
+        function autoSaveMark(term, iemis, subj, type, val) {
+            if(!marks[term]) marks[term] = {};
+            if(!marks[term][iemis]) marks[term][iemis] = {};
+            if(!marks[term][iemis][subj]) marks[term][iemis][subj] = { internal: 0, theory: 0 };
+
+            marks[term][iemis][subj][type] = parseFloat(val) || 0;
+            localStorage.setItem('marks', JSON.stringify(marks));
+            showToast('Mark Auto Saved!');
+        }
+
+        function openTeacherModal() { document.getElementById('teacherModal').classList.remove('hidden'); }
+        function closeTeacherModal() { document.getElementById('teacherModal').classList.add('hidden'); }
+        
+        function saveTeacher() {
+            let id = document.getElementById('tID').value.trim() || 'T-' + Math.floor(Math.random()*900+100);
+            let pass = document.getElementById('tPass').value.trim() || 'pass123';
+            let name = document.getElementById('tName').value.trim();
+            let contact = document.getElementById('tContact').value.trim();
+            let subjs = Array.from(document.getElementById('tSubjs').selectedOptions).map(o => o.value);
+
+            if(!name) return alert('Enter teacher name!');
+            teachers.push({ id, pass, name, contact, subjects: subjs });
+            localStorage.setItem('teachers', JSON.stringify(teachers));
+            closeTeacherModal();
+            renderTeachers();
+            showToast('Teacher Profile Saved!');
+        }
+
+        function renderTeachers() {
+            document.getElementById('teacherBody').innerHTML = teachers.map((t, i) => `
+                <tr>
+                    <td class="p-3 font-bold font-mono">${t.id}</td>
+                    <td class="p-3 font-semibold">${t.name}</td>
+                    <td class="p-3 font-mono text-xs">${t.contact || 'N/A'}</td>
+                    <td class="p-3">${(t.subjects||[]).map(s => `<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold mr-1">${s}</span>`).join('')}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteTeacher(${i})" class="text-red-500 font-bold hover:underline"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('statTotalTeachers').innerText = teachers.length;
+        }
+
+        function deleteTeacher(i) {
+            teachers.splice(i, 1);
+            localStorage.setItem('teachers', JSON.stringify(teachers));
+            renderTeachers();
+            showToast('Teacher Deleted!');
+        }
+
+        function openStudentModal() { document.getElementById('studentModal').classList.remove('hidden'); }
+        function closeStudentModal() { document.getElementById('studentModal').classList.add('hidden'); }
+
+        function saveStudent() {
+            let iemis = document.getElementById('sIemis').value.trim() || Math.floor(Math.random()*900000+100000).toString();
+            let roll = document.getElementById('sRoll').value.trim() || (students.length+1).toString();
+            let name = document.getElementById('sName').value.trim();
+            let cls = document.getElementById('sClass').value;
+
+            if(!name) return alert('Enter student name!');
+            students.push({ iemis, roll, name, class: cls });
+            localStorage.setItem('students', JSON.stringify(students));
+            closeStudentModal();
+            renderStudents();
+            showToast('Student Saved!');
+        }
+
+        function renderStudents() {
+            document.getElementById('studentBody').innerHTML = students.map((s, i) => `
+                <tr>
+                    <td class="p-3 font-mono text-indigo-600 font-bold">${s.iemis}</td>
+                    <td class="p-3 font-bold">${s.roll}</td>
+                    <td class="p-3 font-semibold">${s.name}</td>
+                    <td class="p-3 font-bold">Grade ${s.class}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteStudent(${i})" class="text-red-500 font-bold hover:underline"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('statTotalStudents').innerText = students.length;
+        }
+
+        function deleteStudent(i) {
+            students.splice(i, 1);
+            localStorage.setItem('students', JSON.stringify(students));
+            renderStudents();
+            showToast('Student Deleted!');
+        }
+
+        function renderAttendanceList() {
+            let cls = document.getElementById('attClass').value || "8";
+            let date = document.getElementById('attDate').value;
+            let classStudents = students.filter(s => s.class === cls);
+            if(!attendance[date]) attendance[date] = {};
+
+            document.getElementById('attContainer').innerHTML = classStudents.map(s => {
+                let st = attendance[date][s.iemis] || 'P';
+                return `
+                    <div class="flex justify-between items-center p-3 border rounded-xl text-xs bg-slate-50">
+                        <span class="font-bold text-slate-800">${s.roll}. ${s.name} (IEMIS: ${s.iemis})</span>
+                        <div class="flex gap-4">
+                            <label class="font-bold text-emerald-600 cursor-pointer flex items-center gap-1"><input type="radio" name="att_${s.iemis}" value="P" ${st==='P'?'checked':''} onchange="autoSaveAtt('${s.iemis}', 'P')"> Present</label>
+                            <label class="font-bold text-red-600 cursor-pointer flex items-center gap-1"><input type="radio" name="att_${s.iemis}" value="A" ${st==='A'?'checked':''} onchange="autoSaveAtt('${s.iemis}', 'A')"> Absent</label>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function autoSaveAtt(iemis, status) {
+            let date = document.getElementById('attDate').value;
+            if(!attendance[date]) attendance[date] = {};
+            attendance[date][iemis] = status;
+            localStorage.setItem('attendance', JSON.stringify(attendance));
+            showToast('Attendance Saved!');
+        }
+
+        function downloadTeacherSample() {
+            let ws = XLSX.utils.json_to_sheet([{ "Teacher ID": "T-102", "Password": "pass123", "Full Name": "Hari Bahadur", "Contact": "9800000000", "Subjects": "Mathematics, Science & Tech" }]);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Teachers");
+            XLSX.writeFile(wb, "Teacher_Import_Sample_2083.xlsx");
+        }
+
+        function importTeachersExcel(e) {
+            let file = e.target.files[0];
+            let reader = new FileReader();
+            reader.onload = function(evt) {
+                let data = new Uint8Array(evt.target.result);
+                let wb = XLSX.read(data, {type: 'array'});
+                let json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                json.forEach(r => {
+                    teachers.push({ id: r["Teacher ID"]||'T-100', pass: r["Password"]||'pass123', name: r["Full Name"]||'Teacher', contact: r["Contact"]||'N/A', subjects: (r["Subjects"]||"Mathematics").split(',') });
+                });
+                localStorage.setItem('teachers', JSON.stringify(teachers));
+                renderTeachers();
+                showToast('Teachers Imported!');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadStudentSample() {
+            let ws = XLSX.utils.json_to_sheet([{ "IEMIS Code": "1002343", "Roll": "1", "Student Name": "Ram Bahadur", "Class": "8" }]);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Students");
+            XLSX.writeFile(wb, "Student_IEMIS_Sample_2083.xlsx");
+        }
+
+        function importStudentsExcel(e) {
+            let file = e.target.files[0];
+            let reader = new FileReader();
+            reader.onload = function(evt) {
+                let data = new Uint8Array(evt.target.result);
+                let wb = XLSX.read(data, {type: 'array'});
+                let json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                json.forEach(r => {
+                    students.push({ iemis: r["IEMIS Code"]||'10000', roll: r["Roll"]||'1', name: r["Student Name"]||'Student', class: r["Class"]||'8' });
+                });
+                localStorage.setItem('students', JSON.stringify(students));
+                renderStudents();
+                showToast('Students Imported!');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportStudentsExcel() {
+            let ws = XLSX.utils.json_to_sheet(students);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Students_2083");
+            XLSX.writeFile(wb, "IEMIS_Students_Export_2083.xlsx");
+        }
+
+        function downloadMarksSample() {
+            let ws = XLSX.utils.json_to_sheet([{ "IEMIS Code": "1002341", "Subject": "Mathematics", "Internal": 22, "Theory": 65 }]);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Marks");
+            XLSX.writeFile(wb, "Marks_Sample_2083.xlsx");
+        }
+
+        function importMarksExcel(e) {
+            let file = e.target.files[0];
+            let term = document.getElementById('markTerm').value;
+            let reader = new FileReader();
+            reader.onload = function(evt) {
+                let data = new Uint8Array(evt.target.result);
+                let wb = XLSX.read(data, {type: 'array'});
+                let json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                if(!marks[term]) marks[term] = {};
+                json.forEach(r => {
+                    let iemis = r["IEMIS Code"], subj = r["Subject"] || "Mathematics";
+                    if(iemis) {
+                        if(!marks[term][iemis]) marks[term][iemis] = {};
+                        marks[term][iemis][subj] = { internal: parseFloat(r["Internal"])||0, theory: parseFloat(r["Theory"])||0 };
+                    }
+                });
+                localStorage.setItem('marks', JSON.stringify(marks));
+                renderMarksMatrix();
+                showToast('Marks Imported!');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportMarksExcel() {
+            let term = document.getElementById('markTerm').value;
+            let data = [];
+            if(marks[term]) {
+                Object.keys(marks[term]).forEach(iemis => {
+                    let s = students.find(st => st.iemis === iemis);
+                    Object.keys(marks[term][iemis]).forEach(subj => {
+                        let m = marks[term][iemis][subj];
+                        data.push({ "IEMIS Code": iemis, "Student Name": s?s.name:'N/A', "Subject": subj, "Internal": m.internal, "Theory": m.theory });
+                    });
+                });
+            }
+            let ws = XLSX.utils.json_to_sheet(data);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Marks");
+            XLSX.writeFile(wb, `Marks_Export_${term}_2083.xlsx`);
+        }
+
+        function populateStudentReportSelect() {
+            document.getElementById('reportStudent').innerHTML = students.map(s => `<option value="${s.iemis}">${s.name} (Grade ${s.class}, Roll: ${s.roll})</option>`).join('');
+        }
+
+        function generateGradeSheet() {
+            let iemis = document.getElementById('reportStudent').value;
+            let term = document.getElementById('reportTerm').value;
+            let s = students.find(st => st.iemis === iemis);
+            let sm = (marks[term] && marks[term][iemis]) || { "Mathematics": { internal: 20, theory: 55 } };
+
+            document.getElementById('printArea').innerHTML = `
+                <div class="text-center space-y-1 mb-6 border-b pb-4">
+                    <img src="${settings.schoolLogo || 'https://via.placeholder.com/80'}" class="w-16 h-16 mx-auto rounded-xl object-cover mb-2 border">
+                    <h2 class="text-2xl font-bold uppercase">${settings.schoolName}</h2>
+                    <p class="text-xs font-semibold">${settings.schoolAddress}</p>
+                    <p class="text-xs bg-slate-100 py-1 font-bold inline-block px-4 rounded border mt-2">PROGRESS REPORT CARD - ${term} (${settings.academicYear})</p>
+                </div>
+                <div class="grid grid-cols-2 text-xs font-semibold mb-4 gap-2">
+                    <p>Student Name: <span class="font-bold">${s.name}</span></p>
+                    <p>IEMIS Code: <span class="font-bold">${s.iemis}</span></p>
+                    <p>Class: <span class="font-bold">${s.class}</span></p>
+                    <p>Roll No: <span class="font-bold">${s.roll}</span></p>
+                </div>
+                <table class="w-full text-xs text-left border-collapse border border-slate-400 mb-6">
+                    <thead>
+                        <tr class="bg-slate-100 border-b border-slate-400 font-bold">
+                            <th class="border border-slate-400 p-2">Subject</th>
+                            <th class="border border-slate-400 p-2 text-center">INT Marks</th>
+                            <th class="border border-slate-400 p-2 text-center">TH Marks</th>
+                            <th class="border border-slate-400 p-2 text-center">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.keys(sm).map(sub => `
+                            <tr>
+                                <td class="border border-slate-400 p-2 font-bold">${sub}</td>
+                                <td class="border border-slate-400 p-2 text-center">${sm[sub].internal}</td>
+                                <td class="border border-slate-400 p-2 text-center">${sm[sub].theory}</td>
+                                <td class="border border-slate-400 p-2 text-center font-bold">A</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="flex justify-between items-end text-xs pt-12">
+                    <div class="text-center border-t border-slate-800 px-4 pt-1">Class Teacher</div>
+                    <div class="text-center border-t border-slate-800 px-4 pt-1">Headteacher</div>
+                </div>
+            `;
+            window.print();
+        }
+
+        function initPerfChart() {
+            let ctx = document.getElementById('perfChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Grade 8', 'Grade 9', 'Grade 10'],
+                    datasets: [{ label: 'Average GPA (2083)', data: [3.5, 3.2, 3.6], backgroundColor: '#4f46e5', borderRadius: 8 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    </script>
+</body>
+</html>
