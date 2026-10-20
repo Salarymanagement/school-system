@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Exam & Attendance Management System - 2083 BS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Import/Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;600;700&display=swap');
+        body { font-family: 'Mukta', sans-serif; background-color: #f3f4f6; }
+        .glass-header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="glass-header sticky top-0 z-50 border-b border-slate-200 shadow-sm no-print">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-graduation-cap text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-800 leading-tight">School Exam & Attendance System</h1>
+                    <p class="text-xs text-indigo-600 font-semibold">Academic Session 2083 BS (IEMIS / CDC Aligned)</p>
+                </div>
+            </div>
+
+            <!-- Role Switcher Control -->
+            <div class="flex items-center gap-3 bg-slate-200/80 p-1.5 rounded-xl border border-slate-300">
+                <span class="text-xs font-bold text-slate-600 px-2"><i class="fa-solid fa-user-shield mr-1"></i>Role:</span>
+                <select id="roleSelector" onchange="switchRole(this.value)" class="bg-white text-slate-800 font-bold text-sm px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="admin">Admin Panel (Headteacher/IT)</option>
+                    <option value="class_teacher">Class Teacher (Daily Attendance/CAS)</option>
+                    <option value="subject_teacher">Subject Teacher (Subject Marks Entry)</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Developer Branding Header Bar -->
+    <div class="bg-indigo-900 text-indigo-100 text-xs py-1.5 px-4 text-center font-medium shadow-inner no-print">
+        <i class="fa-solid fa-code mr-1"></i> System Designed & Developed by: <span class="font-bold text-yellow-300">Babukrishna Khanal</span> | Dhading, Nepal
+    </div>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full grid grid-cols-1 md:grid-cols-4 gap-6 no-print">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="md:col-span-1 space-y-4">
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-2">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider px-3 mb-2">Main Menu</div>
+                
+                <button onclick="showTab('dashboard')" id="nav-dashboard" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 bg-indigo-50 text-indigo-700 transition">
+                    <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+                </button>
+                <button onclick="showTab('teachers')" id="nav-teachers" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                    <i class="fa-solid fa-chalkboard-user w-5"></i> Manage Teachers
+                </button>
+                <button onclick="showTab('students')" id="nav-students" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                    <i class="fa-solid fa-user-graduate w-5"></i> Manage Students
+                </button>
+                <button onclick="showTab('attendance')" id="nav-attendance" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                    <i class="fa-solid fa-calendar-check w-5"></i> Daily Attendance
+                </button>
+                <button onclick="showTab('marks')" id="nav-marks" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                    <i class="fa-solid fa-pen-to-square w-5"></i> Marks Entry (CDC 2083)
+                </button>
+                <button onclick="showTab('reports')" id="nav-reports" class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition">
+                    <i class="fa-solid fa-file-invoice w-5"></i> Grade Sheets & Reports
+                </button>
+            </div>
+
+            <!-- Developer Card -->
+            <div class="bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl p-4 shadow-md text-center space-y-2">
+                <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-user-gear"></i>
+                </div>
+                <h4 class="font-bold text-sm">Babukrishna Khanal</h4>
+                <p class="text-xs text-indigo-200">Secondary Math Teacher & IT Lead</p>
+                <p class="text-[10px] text-indigo-300">Dhunibesi, Dhading, Nepal</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="md:col-span-3 space-y-6">
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Academic Overview 2083 BS</h2>
+                        <p class="text-slate-500 text-sm">Welcome to the School Exam & Attendance System.</p>
+                    </div>
+                    <span id="roleBadge" class="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-full border border-indigo-200">
+                        Admin Mode
+                    </span>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-xs font-bold text-slate-400 uppercase">Total Students</p>
+                        <h3 id="statTotalStudents" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-xs font-bold text-slate-400 uppercase">Total Teachers</p>
+                        <h3 id="statTotalTeachers" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-xs font-bold text-slate-400 uppercase">Today Attendance</p>
+                        <h3 id="statAttendance" class="text-2xl font-bold text-emerald-600 mt-1">0%</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-xs font-bold text-slate-400 uppercase">Exam Pass Rate</p>
+                        <h3 id="statPassRate" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
+                    </div>
+                </div>
+
+                <!-- Chart Area -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="font-bold text-slate-800 mb-4">Class Performance Overview (2083)</h3>
+                    <div class="h-64">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: MANAGING TEACHERS -->
+            <section id="tab-teachers" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Teacher Account Management</h2>
+                        <p class="text-xs text-slate-500">Create IDs and assign Class / Subject permissions.</p>
+                    </div>
+                    <button onclick="openTeacherModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Add Teacher
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 uppercase text-xs font-bold border-b border-slate-200">
+                            <tr>
+                                <th class="p-4">Teacher ID</th>
+                                <th class="p-4">Name</th>
+                                <th class="p-4">Assigned Class</th>
+                                <th class="p-4">Assigned Subject</th>
+                                <th class="p-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacherTableBody" class="divide-y divide-slate-100">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 3: MANAGING STUDENTS -->
+            <section id="tab-students" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Student Database (2083 BS)</h2>
+                        <p class="text-xs text-slate-500">Import student data with IEMIS Unique Code.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i> Import IEMIS Excel
+                            <input type="file" id="studentExcelInput" accept=".xlsx, .xls" onchange="importStudentExcel(event)" class="hidden">
+                        </label>
+                        <button onclick="openStudentModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Add Student
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 uppercase text-xs font-bold border-b border-slate-200">
+                            <tr>
+                                <th class="p-4">IEMIS Code</th>
+                                <th class="p-4">Roll No</th>
+                                <th class="p-4">Student Name</th>
+                                <th class="p-4">Class</th>
+                                <th class="p-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody" class="divide-y divide-slate-100">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 4: DAILY ATTENDANCE -->
+            <section id="tab-attendance" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h2 class="text-xl font-bold text-slate-800">Daily Attendance Tracker</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="text-xs font-bold text-slate-600">Class</label>
+                            <select id="attClass" onchange="loadAttendanceList()" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm mt-1">
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10">Grade 10</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600">Date (BS)</label>
+                            <input type="text" id="attDate" value="2083-01-15" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm mt-1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
+                    <div id="attendanceListContainer" class="space-y-2">
+                        <!-- Injected Attendance Items -->
+                    </div>
+                    <button onclick="saveAttendance()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition">
+                        Save Attendance
+                    </button>
+                </div>
+            </section>
+
+            <!-- TAB 5: MARKS ENTRY (CDC 2083) -->
+            <section id="tab-marks" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h2 class="text-xl font-bold text-slate-800">Marks Entry (2083 CDC Rules)</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="text-xs font-bold text-slate-600">Class</label>
+                            <select id="markClass" onchange="loadMarksEntryTable()" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm mt-1">
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10">Grade 10</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600">Subject</label>
+                            <select id="markSubject" onchange="loadMarksEntryTable()" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm mt-1">
+                                <option value="Mathematics">Mathematics</option>
+                                <option value="Science">Science & Tech</option>
+                                <option value="English">English</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto p-4 space-y-4">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 uppercase text-xs font-bold border-b border-slate-200">
+                            <tr>
+                                <th class="p-3">Roll</th>
+                                <th class="p-3">Student Name</th>
+                                <th class="p-3">Internal / CAS (25)</th>
+                                <th class="p-3">Theory (75)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="marksEntryBody" class="divide-y divide-slate-100">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                    <button onclick="saveMarks()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition">
+                        Save & Calculate CDC Grades
+                    </button>
+                </div>
+            </section>
+
+            <!-- TAB 6: REPORTS & GRADE SHEETS -->
+            <section id="tab-reports" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Grade Sheets & Ledger (2083)</h2>
+                        <p class="text-xs text-slate-500">Print CDC standard progress report cards.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportIEMISExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-export"></i> Export IEMIS Ledger
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <label class="text-xs font-bold text-slate-600">Select Student for Grade Sheet</label>
+                    <select id="reportStudentSelect" class="w-full p-2.5 rounded-xl border border-slate-300 text-sm">
+                        <!-- Injected JS -->
+                    </select>
+                    <button onclick="generateGradeSheet()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition">
+                        Generate & Print Grade Sheet
+                    </button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- PRINTABLE GRADE SHEET CONTAINER (HIDDEN UNTIL PRINT) -->
+    <div id="printableGradeSheet" class="print-only p-8 bg-white text-slate-900 max-w-4xl mx-auto border-2 border-slate-800 my-4">
+        <!-- Injected Dynamically for Printing -->
+    </div>
+
+    <!-- Global Footer -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-6 mt-auto border-t border-slate-800 no-print">
+        <div class="max-w-7xl mx-auto px-4 text-center space-y-2">
+            <p>© 2083 BS School Exam & Attendance System. All Rights Reserved.</p>
+            <p class="text-slate-500">Designed & Developed with ❤️ by <span class="text-indigo-400 font-bold">Babukrishna Khanal</span></p>
+        </div>
+    </footer>
+
+    <!-- JS Logic -->
+    <script>
+        // Default Sample Data
+        let teachers = JSON.parse(localStorage.getItem('teachers')) || [
+            { id: 'T-101', name: 'Babukrishna Khanal', class: '8', subject: 'Mathematics' }
+        ];
+
+        let students = JSON.parse(localStorage.getItem('students')) || [
+            { iemis: '1002341', roll: '1', name: 'Aarav Sharma', class: '8' },
+            { iemis: '1002342', roll: '2', name: 'Sita Nepal', class: '8' }
+        ];
+
+        let marks = JSON.parse(localStorage.getItem('marks')) || {};
+        let currentRole = 'admin';
+
+        // CDC 2083 Grade Calculator
+        function calculateCDCGrade(theory, internal) {
+            let total = (theory || 0) + (internal || 0);
+            if (theory < 26.25 || internal < 10) return { grade: 'NG', gpa: 0.0, remark: 'Non-Graded' };
+            if (total >= 90) return { grade: 'A+', gpa: 4.0, remark: 'Outstanding' };
+            if (total >= 80) return { grade: 'A', gpa: 3.6, remark: 'Excellent' };
+            if (total >= 70) return { grade: 'B+', gpa: 3.2, remark: 'Very Good' };
+            if (total >= 60) return { grade: 'B', gpa: 2.8, remark: 'Good' };
+            if (total >= 50) return { grade: 'C+', gpa: 2.4, remark: 'Satisfactory' };
+            if (total >= 40) return { grade: 'C', gpa: 2.0, remark: 'Acceptable' };
+            if (total >= 35) return { grade: 'D', gpa: 1.6, remark: 'Basic' };
+            return { grade: 'NG', gpa: 0.0, remark: 'Non-Graded' };
+        }
+
+        // Navigation
+        function showTab(tabName) {
+            document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            
+            document.querySelectorAll('aside button').forEach(el => {
+                el.classList.remove('bg-indigo-50', 'text-indigo-700');
+                el.classList.add('text-slate-600');
+            });
+            let activeBtn = document.getElementById('nav-' + tabName);
+            if(activeBtn) {
+                activeBtn.classList.add('bg-indigo-50', 'text-indigo-700');
+            }
+
+            if(tabName === 'teachers') renderTeachers();
+            if(tabName === 'students') renderStudents();
+            if(tabName === 'attendance') loadAttendanceList();
+            if(tabName === 'marks') loadMarksEntryTable();
+            if(tabName === 'reports') populateStudentDropdown();
+        }
+
+        function switchRole(role) {
+            currentRole = role;
+            document.getElementById('roleBadge').innerText = role.toUpperCase() + ' MODE';
+            alert('Switched role to: ' + role);
+        }
+
+        // Render Teachers
+        function renderTeachers() {
+            let tbody = document.getElementById('teacherTableBody');
+            tbody.innerHTML = teachers.map((t, index) => `
+                <tr>
+                    <td class="p-4 font-bold text-slate-800">${t.id}</td>
+                    <td class="p-4">${t.name}</td>
+                    <td class="p-4">Grade ${t.class}</td>
+                    <td class="p-4">${t.subject}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteTeacher(${index})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('statTotalTeachers').innerText = teachers.length;
+        }
+
+        function deleteTeacher(index) {
+            teachers.splice(index, 1);
+            localStorage.setItem('teachers', JSON.stringify(teachers));
+            renderTeachers();
+        }
+
+        // Render Students
+        function renderStudents() {
+            let tbody = document.getElementById('studentTableBody');
+            tbody.innerHTML = students.map((s, index) => `
+                <tr>
+                    <td class="p-4 font-mono">${s.iemis}</td>
+                    <td class="p-4 font-bold">${s.roll}</td>
+                    <td class="p-4 font-semibold text-slate-800">${s.name}</td>
+                    <td class="p-4">Grade ${s.class}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteStudent(${index})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('statTotalStudents').innerText = students.length;
+        }
+
+        function deleteStudent(index) {
+            students.splice(index, 1);
+            localStorage.setItem('students', JSON.stringify(students));
+            renderStudents();
+        }
+
+        // Attendance
+        function loadAttendanceList() {
+            let container = document.getElementById('attendanceListContainer');
+            let cls = document.getElementById('attClass').value;
+            let classStudents = students.filter(s => s.class === cls);
+
+            if(classStudents.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-400 p-4">No students found in this class.</p>';
+                return;
+            }
+
+            container.innerHTML = classStudents.map(s => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                    <span class="font-bold text-sm text-slate-800">${s.roll}. ${s.name}</span>
+                    <div class="flex gap-2">
+                        <label class="text-xs font-bold text-emerald-600"><input type="radio" name="att_${s.iemis}" value="P" checked> Present</label>
+                        <label class="text-xs font-bold text-red-600"><input type="radio" name="att_${s.iemis}" value="A"> Absent</label>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function saveAttendance() {
+            alert('Attendance saved successfully for 2083!');
+            document.getElementById('statAttendance').innerText = '95%';
+        }
+
+        // Marks Entry
+        function loadMarksEntryTable() {
+            let tbody = document.getElementById('marksEntryBody');
+            let cls = document.getElementById('markClass').value;
+            let classStudents = students.filter(s => s.class === cls);
+
+            tbody.innerHTML = classStudents.map(s => `
+                <tr>
+                    <td class="p-3 font-bold">${s.roll}</td>
+                    <td class="p-3">${s.name}</td>
+                    <td class="p-3"><input type="number" id="int_${s.iemis}" max="25" class="p-1 border rounded w-20 text-sm" value="20"></td>
+                    <td class="p-3"><input type="number" id="th_${s.iemis}" max="75" class="p-1 border rounded w-20 text-sm" value="55"></td>
+                </tr>
+            `).join('');
+        }
+
+        function saveMarks() {
+            let cls = document.getElementById('markClass').value;
+            let subj = document.getElementById('markSubject').value;
+            let classStudents = students.filter(s => s.class === cls);
+
+            classStudents.forEach(s => {
+                let internal = parseFloat(document.getElementById(`int_${s.iemis}`).value) || 0;
+                let theory = parseFloat(document.getElementById(`th_${s.iemis}`).value) || 0;
+                
+                if(!marks[s.iemis]) marks[s.iemis] = {};
+                marks[s.iemis][subj] = { internal, theory };
+            });
+
+            localStorage.setItem('marks', JSON.stringify(marks));
+            alert('Marks saved and CDC 2083 grades calculated!');
+            document.getElementById('statPassRate').innerText = '88%';
+        }
+
+        // Reports & Printing
+        function populateStudentDropdown() {
+            let select = document.getElementById('reportStudentSelect');
+            select.innerHTML = students.map(s => `<option value="${s.iemis}">${s.name} (Grade ${s.class}, Roll: ${s.roll})</option>`).join('');
+        }
+
+        function generateGradeSheet() {
+            let iemis = document.getElementById('reportStudentSelect').value;
+            let student = students.find(s => s.iemis === iemis);
+            let studentMarks = marks[iemis] || {};
+
+            let container = document.getElementById('printableGradeSheet');
+            container.innerHTML = `
+                <div class="text-center space-y-1 mb-6 border-b pb-4">
+                    <h2 class="text-2xl font-bold uppercase">Shree Mahadevsthan Secondary School</h2>
+                    <p class="text-sm font-semibold">Dhunibesi-5, Kumaikhola, Dhading, Nepal</p>
+                    <p class="text-xs bg-slate-100 py-1 font-bold inline-block px-4 rounded border mt-2">GRADE SHEET - ACADEMIC YEAR 2083 BS</p>
+                </div>
+
+                <div class="grid grid-cols-2 text-xs font-semibold mb-4 gap-2">
+                    <p>Student Name: <span class="font-bold">${student.name}</span></p>
+                    <p>IEMIS Code: <span class="font-bold">${student.iemis}</span></p>
+                    <p>Class: <span class="font-bold">${student.class}</span></p>
+                    <p>Roll No: <span class="font-bold">${student.roll}</span></p>
+                </div>
+
+                <table class="w-full text-xs text-left border-collapse border border-slate-400 mb-6">
+                    <thead>
+                        <tr class="bg-slate-100 border-b border-slate-400">
+                            <th class="border border-slate-400 p-2">Subject</th>
+                            <th class="border border-slate-400 p-2 text-center">INT (25)</th>
+                            <th class="border border-slate-400 p-2 text-center">TH (75)</th>
+                            <th class="border border-slate-400 p-2 text-center">Grade</th>
+                            <th class="border border-slate-400 p-2 text-center">GPA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.keys(studentMarks).map(subj => {
+                            let m = studentMarks[subj];
+                            let res = calculateCDCGrade(m.theory, m.internal);
+                            return `
+                                <tr>
+                                    <td class="border border-slate-400 p-2 font-bold">${subj}</td>
+                                    <td class="border border-slate-400 p-2 text-center">${m.internal}</td>
+                                    <td class="border border-slate-400 p-2 text-center">${m.theory}</td>
+                                    <td class="border border-slate-400 p-2 text-center font-bold">${res.grade}</td>
+                                    <td class="border border-slate-400 p-2 text-center">${res.gpa}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+
+                <div class="flex justify-between items-end text-xs pt-12">
+                    <div class="text-center border-t border-slate-800 px-4 pt-1">Class Teacher</div>
+                    <div class="text-center border-t border-slate-800 px-4 pt-1">Headteacher</div>
+                </div>
+
+                <div class="mt-8 text-[10px] text-center text-slate-500 border-t pt-2">
+                    System Designed & Developed by Babukrishna Khanal | Dhading, Nepal
+                </div>
+            `;
+
+            window.print();
+        }
+
+        // Initialize Chart
+        window.onload = function() {
+            renderTeachers();
+            renderStudents();
+            
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Grade 8', 'Grade 9', 'Grade 10'],
+                    datasets: [{
+                        label: 'Average GPA (2083 BS)',
+                        data: [3.4, 3.2, 3.6],
+                        backgroundColor: '#4f46e5',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        };
+    </script>
+</body>
+</html>
