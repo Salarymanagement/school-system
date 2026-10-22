@@ -1,0 +1,2324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrated Educational Management Information System (IEMIS) - Government of Nepal</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- SheetJS (xlsx) for Excel Import/Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        iemis: {
+                            50: '#f0f3ff',
+                            100: '#e1e7fe',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                            banner: '#5551c7'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Mukta', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', 'Mukta', sans-serif; }
+        .sidebar-item-active {
+            background-color: #f3f4f6;
+            color: #4f46e5;
+            font-weight: 600;
+            border-left: 4px solid #4f46e5;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; color: black !important; font-size: 12pt; }
+            .page-break { page-break-before: always; }
+            .shadow-lg, .shadow, .shadow-md { box-shadow: none !important; }
+            .border { border-color: #000 !important; }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c7d2fe;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #818cf8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 flex flex-col">
+
+    <!-- TOP HEADER -->
+    <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-40 no-print">
+        <div class="px-4 py-2.5 flex justify-between items-center">
+            <!-- Left Branding -->
+            <div class="flex items-center space-x-3">
+                <button id="mobileSidebarToggle" class="md:hidden text-white hover:text-gray-200 focus:outline-none">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <div class="flex items-center space-x-2 cursor-pointer" onclick="switchView('dashboardView')">
+                    <div class="bg-white text-indigo-900 rounded p-1 font-bold text-lg flex items-center justify-center w-9 h-9 shadow">
+                        <i class="fa-solid fa-graduation-cap text-indigo-700"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg tracking-wide leading-none font-sans">IEM<span class="text-indigo-300">i</span>S</h1>
+                        <p class="text-[10px] text-indigo-200 uppercase tracking-wider font-light">EMIS CEHRD NEPAL</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="flex items-center space-x-3 md:space-x-5">
+                <!-- Language Switcher -->
+                <div class="flex items-center bg-indigo-950/60 rounded-full p-1 border border-indigo-700/50">
+                    <button id="langENBtn" onclick="toggleLanguage('EN')" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-600 text-white shadow transition">EN</button>
+                    <button id="langNPBtn" onclick="toggleLanguage('NP')" class="px-2.5 py-0.5 rounded-full text-xs font-semibold text-indigo-200 hover:text-white transition">नेपाली</button>
+                </div>
+
+                <!-- Academic Year Badge -->
+                <div class="hidden sm:flex items-center bg-indigo-800/80 px-3 py-1 rounded-md text-xs font-medium border border-indigo-600">
+                    <i class="fa-regular fa-calendar-check mr-1.5 text-amber-300"></i>
+                    <span data-i18n="acadYear">Year</span>: <span class="ml-1 font-bold text-amber-300">2083 BS</span>
+                </div>
+
+                <!-- Active User Dropdown -->
+                <div class="relative">
+                    <button id="userMenuBtn" class="flex items-center space-x-2 text-sm focus:outline-none bg-indigo-800/60 hover:bg-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-700 transition">
+                        <img id="headerUserAvatar" src="https://placehold.co/100x100/312e81/ffffff?text=Admin" class="w-6 h-6 rounded-full border border-indigo-300 object-cover" alt="Avatar">
+                        <span id="headerUserName" class="font-medium max-w-[120px] truncate">Administrator</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-indigo-300"></i>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div id="userDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 z-50 text-gray-800 border border-gray-100">
+                        <div class="px-4 py-2 border-b border-gray-100 bg-indigo-50/50">
+                            <p id="userRoleBadge" class="text-xs text-indigo-600 font-bold uppercase tracking-wider">SYSTEM ADMIN</p>
+                            <p id="userSubText" class="text-xs text-gray-500 truncate">Central Access</p>
+                        </div>
+                        <a href="#" onclick="switchView('schoolProfileView'); hideUserDropdown();" class="block px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">
+                            <i class="fa-solid fa-school text-indigo-600 mr-2 w-4"></i><span data-i18n="menuSchoolProfile">School Profile</span>
+                        </a>
+                        <a href="#" onclick="openPasswordResetModal()" class="block px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">
+                            <i class="fa-solid fa-key text-indigo-600 mr-2 w-4"></i><span data-i18n="resetPassword">Reset Password</span>
+                        </a>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <button onclick="handleLogout()" class="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 font-medium flex items-center">
+                            <i class="fa-solid fa-right-from-bracket mr-2 w-4"></i><span data-i18n="logout">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN WRAPPER -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside id="sidebar" class="bg-white w-64 border-r border-gray-200 flex-shrink-0 flex flex-col justify-between transition-all duration-300 z-30 fixed md:static inset-y-0 left-0 transform -translate-x-full md:translate-x-0 no-print">
+            <div class="overflow-y-auto custom-scrollbar py-3 px-2 flex-1">
+                
+                <nav class="space-y-1">
+                    <button onclick="switchView('dashboardView')" id="nav-dashboardView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition sidebar-item-active">
+                        <i class="fa-solid fa-house w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuDashboard">Dashboard</span>
+                    </button>
+
+                    <button onclick="switchView('schoolProfileView')" id="nav-schoolProfileView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-school w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuSchoolProfile">School Profile</span>
+                    </button>
+
+                    <button onclick="switchView('studentRecordView')" id="nav-studentRecordView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-user-graduate w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuStudentRecord">Student Record</span>
+                    </button>
+
+                    <button onclick="switchView('teacherStaffView')" id="nav-teacherStaffView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-chalkboard-user w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuTeacherStaff">Teacher & Staff</span>
+                    </button>
+
+                    <button onclick="switchView('subjectConfigView')" id="nav-subjectConfigView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-book-bookmark w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuSubjectConfig">CDC Subject Config</span>
+                    </button>
+
+                    <button onclick="switchView('manageExamView')" id="nav-manageExamView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-pen-to-square w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuManageExam">Manage Exam Marks</span>
+                    </button>
+
+                    <button onclick="switchView('attendanceView')" id="nav-attendanceView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-calendar-check w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuAttendance">Daily Attendance</span>
+                    </button>
+
+                    <button onclick="switchView('gradeSheetView')" id="nav-gradeSheetView" class="w-full text-left flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-file-invoice w-6 text-indigo-600 text-base"></i>
+                        <span data-i18n="menuGradeSheet">CDC Grade Sheets</span>
+                    </button>
+                </nav>
+
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2" data-i18n="dataTools">Data Management</p>
+                    <button onclick="openExcelSyncModal()" class="w-full text-left flex items-center px-3 py-2 text-sm font-medium rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition">
+                        <i class="fa-solid fa-file-excel w-6 text-emerald-600 text-base"></i>
+                        <span data-i18n="excelSyncBtn">Excel Data Sync</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="p-3 border-t border-gray-200 bg-gray-50 text-xs text-gray-500 text-center">
+                <p class="font-semibold text-gray-700">CEHRD IEMIS 2083</p>
+                <p>Version 4.2 Pro (Nepal)</p>
+            </div>
+        </aside>
+
+        <!-- CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6 custom-scrollbar relative">
+            
+            <!-- VIEW 1: DASHBOARD -->
+            <div id="dashboardView" class="view-panel space-y-6">
+                <!-- TOP HEADER BANNER (Official Purple Theme) -->
+                <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-iemis-banner rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 pointer-events-none transform translate-x-10 -translate-y-10">
+                        <i class="fa-solid fa-monument text-[220px]"></i>
+                    </div>
+
+                    <div class="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                        <div>
+                            <div class="flex items-center space-x-3 mb-1">
+                                <span class="bg-indigo-700/80 text-amber-300 text-xs px-2.5 py-1 rounded-md font-semibold tracking-wide uppercase border border-indigo-500">Government of Nepal</span>
+                                <span class="text-xs text-indigo-200" data-i18n="ministryLabel">Ministry of Education, Science and Technology</span>
+                            </div>
+                            <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">
+                                <span data-i18n="welcomePrefix">Welcome to IEMIS,</span> <span id="dashSchoolNameTitle">Shree Mahadevsthan Secondary School</span> !
+                            </h2>
+                            <p class="text-indigo-200 text-sm mt-1 flex items-center">
+                                <i class="fa-solid fa-location-dot mr-1.5 text-amber-400"></i>
+                                <span id="dashSchoolAddrSub">Dhunibesi-5, Kumaikhola, Dhading</span>
+                                <span class="mx-2">•</span>
+                                <span data-i18n="codeLabel">EMIS Code</span>: <span id="dashSchoolCodeSub" class="font-mono ml-1 text-white font-bold">260010042</span>
+                            </p>
+                        </div>
+
+                        <!-- Stats Badge Row -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full lg:w-auto">
+                            <div class="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/15 text-center">
+                                <p class="text-xl font-bold text-white">7</p>
+                                <p class="text-[11px] text-indigo-200" data-i18n="statProvinces">Provinces</p>
+                            </div>
+                            <div class="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/15 text-center">
+                                <p class="text-xl font-bold text-white">77</p>
+                                <p class="text-[11px] text-indigo-200" data-i18n="statDistricts">Districts</p>
+                            </div>
+                            <div class="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/15 text-center">
+                                <p class="text-xl font-bold text-white">753</p>
+                                <p class="text-[11px] text-indigo-200" data-i18n="statMunicipalities">Municipalities</p>
+                            </div>
+                            <div class="bg-amber-500/20 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-amber-400/40 text-center">
+                                <p class="text-xl font-extrabold text-amber-300">2083</p>
+                                <p class="text-[11px] text-amber-200" data-i18n="statAcadYear">Academic Year</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAIN DASHBOARD CONTENT GRID -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Quick Menu Card Grid (2 cols on large screen) -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                            <h3 class="text-base font-bold text-gray-800 flex items-center">
+                                <i class="fa-solid fa-grip text-indigo-600 mr-2"></i>
+                                <span data-i18n="quickMenuTitle">Quick Menu</span>
+                            </h3>
+                            <span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-medium" data-i18n="quickMenuSubtitle">Primary Operations</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <!-- Quick Button 1 -->
+                            <button onclick="switchView('dashboardView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-indigo-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-bolt"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmDashboard">Dashboard</span>
+                            </button>
+
+                            <!-- Quick Button 2 -->
+                            <button onclick="switchView('schoolProfileView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-blue-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-school"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmSchoolProfile">School Profile</span>
+                            </button>
+
+                            <!-- Quick Button 3 -->
+                            <button onclick="switchView('studentRecordView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-emerald-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-user-graduate"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmStudentInfo">Student Information</span>
+                            </button>
+
+                            <!-- Quick Button 4 -->
+                            <button onclick="switchView('manageExamView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-purple-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmManageExam">Manage Exam</span>
+                            </button>
+
+                            <!-- Quick Button 5 -->
+                            <button onclick="switchView('teacherStaffView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-amber-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-chalkboard-user"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmTeacherStaff">Teacher & Staff</span>
+                            </button>
+
+                            <!-- Quick Button 6 -->
+                            <button onclick="switchView('attendanceView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-rose-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-calendar-days"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmAttendance">Daily Attendance</span>
+                            </button>
+
+                            <!-- Quick Button 7 -->
+                            <button onclick="switchView('gradeSheetView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-cyan-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-file-invoice"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmGradeSheet">CDC Grade Sheet</span>
+                            </button>
+
+                            <!-- Quick Button 8 -->
+                            <button onclick="switchView('subjectConfigView')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-teal-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-book-bookmark"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmSubjects">Subject Setup</span>
+                            </button>
+
+                            <!-- Quick Button 9 -->
+                            <button onclick="openExcelSyncModal()" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition flex flex-col items-center text-center group">
+                                <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center text-xl mb-2.5 group-hover:bg-emerald-600 group-hover:text-white transition">
+                                    <i class="fa-solid fa-file-excel"></i>
+                                </div>
+                                <span class="font-semibold text-sm text-gray-800" data-i18n="qmExcelSync">Excel Data Sync</span>
+                            </button>
+                        </div>
+
+                        <!-- Enrollment Chart Section -->
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mt-4">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="font-bold text-gray-800 text-sm flex items-center">
+                                    <i class="fa-solid fa-chart-column text-indigo-600 mr-2"></i>
+                                    <span data-i18n="chartTitle">Student Enrollment Demographics (Class 1-10)</span>
+                                </h4>
+                                <span class="text-xs text-gray-500" data-i18n="updatedLive">Updated Live</span>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="enrollmentChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Important Notices & Updates -->
+                    <div class="space-y-4">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center">
+                                <h3 class="font-bold text-sm flex items-center">
+                                    <i class="fa-solid fa-bullhorn text-amber-300 mr-2"></i>
+                                    <span data-i18n="noticeTitle">Important Notices & Updates</span>
+                                </h3>
+                                <span class="text-[10px] bg-amber-400 text-indigo-950 font-bold px-2 py-0.5 rounded">CEHRD</span>
+                            </div>
+
+                            <div class="p-4 space-y-4 text-xs">
+                                <div class="border-b border-gray-100 pb-3 hover:bg-gray-50 p-1 rounded transition">
+                                    <a href="#" class="text-indigo-900 font-bold hover:underline line-clamp-2" data-i18n="notice1Title">छात्रवृत्ति वितरण तथा विद्यार्थी सत्यापन सम्बन्धमा संस्थागत विवरण प्रविष्टि गराउने सूचना</a>
+                                    <div class="flex items-center justify-between mt-2 text-gray-500 text-[11px]">
+                                        <span>Published By: <strong class="text-gray-700">Central Level</strong></span>
+                                        <span>Date: <strong>2083-06-06</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="border-b border-gray-100 pb-3 hover:bg-gray-50 p-1 rounded transition">
+                                    <a href="#" class="text-indigo-900 font-bold hover:underline line-clamp-2" data-i18n="notice2Title">सामुदायिक विद्यालयका विद्यार्थी सत्यापन गर्ने सम्बन्धी अत्यन्त जरुरी सूचना</a>
+                                    <div class="flex items-center justify-between mt-2 text-gray-500 text-[11px]">
+                                        <span>Published By: <strong class="text-gray-700">CEHRD Sanothimi</strong></span>
+                                        <span>Date: <strong>2083-06-04</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="border-b border-gray-100 pb-3 hover:bg-gray-50 p-1 rounded transition">
+                                    <a href="#" class="text-indigo-900 font-bold hover:underline line-clamp-2" data-i18n="notice3Title">CDC Letter Grading Directive 2083 Implementation Guidelines for Internal & Theory Evaluation</a>
+                                    <div class="flex items-center justify-between mt-2 text-gray-500 text-[11px]">
+                                        <span>Published By: <strong class="text-gray-700">Exam Controller</strong></span>
+                                        <span>Date: <strong>2083-05-20</strong></span>
+                                    </div>
+                                </div>
+
+                                <div class="hover:bg-gray-50 p-1 rounded transition">
+                                    <a href="#" class="text-indigo-900 font-bold hover:underline line-clamp-2" data-i18n="notice4Title">IEMIS Web Portal Maintenance Schedule for Academic Year 2083 Data Sync</a>
+                                    <div class="flex items-center justify-between mt-2 text-gray-500 text-[11px]">
+                                        <span>Published By: <strong class="text-gray-700">IT Department</strong></span>
+                                        <span>Date: <strong>2083-05-10</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Status Summary -->
+                        <div class="bg-indigo-900 text-white p-4 rounded-xl shadow-sm border border-indigo-800 space-y-3">
+                            <h4 class="font-bold text-xs uppercase tracking-wider text-indigo-200" data-i18n="sysStatus">System Quick Stats</h4>
+                            <div class="grid grid-cols-2 gap-2 text-center">
+                                <div class="bg-indigo-950/60 p-2.5 rounded-lg border border-indigo-700">
+                                    <p id="dashTotalStudents" class="text-lg font-bold text-amber-300">0</p>
+                                    <p class="text-[10px] text-indigo-200" data-i18n="dashEnrolledStd">Total Students</p>
+                                </div>
+                                <div class="bg-indigo-950/60 p-2.5 rounded-lg border border-indigo-700">
+                                    <p id="dashTotalTeachers" class="text-lg font-bold text-emerald-300">0</p>
+                                    <p class="text-[10px] text-indigo-200" data-i18n="dashActiveTeachers">Total Staff</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: SCHOOL PROFILE -->
+            <div id="schoolProfileView" class="view-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="border-b border-gray-200 pb-4 mb-6 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900" data-i18n="schoolProfileHeading">School Profile & General Information</h3>
+                            <p class="text-xs text-gray-500" data-i18n="schoolProfileSub">Manage official IEMIS institutional details and logo upload</p>
+                        </div>
+                        <button onclick="saveSchoolProfile()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow transition flex items-center">
+                            <i class="fa-solid fa-floppy-disk mr-2"></i><span data-i18n="saveChanges">Save Profile</span>
+                        </button>
+                    </div>
+
+                    <form id="schoolProfileForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Logo Upload Column -->
+                        <div class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 text-center">
+                            <div class="relative mb-4">
+                                <img id="schoolProfileLogoPreview" src="https://placehold.co/150x150/4338ca/ffffff?text=EMIS+Logo" class="w-32 h-32 rounded-full border-4 border-white shadow-md object-cover" alt="School Logo">
+                                <label for="logoInput" class="absolute bottom-0 right-0 bg-indigo-600 text-white p-2.5 rounded-full cursor-pointer hover:bg-indigo-700 transition shadow">
+                                    <i class="fa-solid fa-camera text-xs"></i>
+                                </label>
+                                <input type="file" id="logoInput" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
+                            </div>
+                            <span class="text-xs font-semibold text-gray-700 mb-1" data-i18n="schoolLogoLabel">Official School Emblem / Logo</span>
+                            <p class="text-[11px] text-gray-500" data-i18n="logoFormatInfo">JPG or PNG. Maximum 2MB. Used in Grade Sheets.</p>
+                        </div>
+
+                        <!-- Form Fields (2 Columns) -->
+                        <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spSchoolName">School Name (English)</label>
+                                <input type="text" id="spName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spSchoolNameNP">School Name (Nepali)</label>
+                                <input type="text" id="spNameNP" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spEmisCode">IEMIS Code</label>
+                                <input type="text" id="spCode" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spHeadTeacher">Headteacher Name</label>
+                                <input type="text" id="spHead" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spAddress">Address / Location</label>
+                                <input type="text" id="spAddr" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spDistrict">District & Municipality</label>
+                                <input type="text" id="spDistrict" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spPhone">Contact Phone</label>
+                                <input type="text" id="spPhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="spEmail">Official Email</label>
+                                <input type="email" id="spEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- VIEW 3: STUDENT RECORD -->
+            <div id="studentRecordView" class="view-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900" data-i18n="studentRecordTitle">Student Master Directory</h3>
+                            <p class="text-xs text-gray-500" data-i18n="studentRecordSub">Add, manage and import IEMIS registered students</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="openAddStudentModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition flex items-center">
+                                <i class="fa-solid fa-plus mr-1.5"></i><span data-i18n="addStudentBtn">Add New Student</span>
+                            </button>
+                            <button onclick="openExcelSyncModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition flex items-center">
+                                <i class="fa-solid fa-file-excel mr-1.5"></i><span data-i18n="importExportExcel">Import/Export Excel</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Toolbar -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 p-3.5 rounded-xl border border-gray-200 mb-4">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-600 mb-1" data-i18n="filterClass">Filter Grade/Class</label>
+                            <select id="studentClassFilter" onchange="renderStudentTable()" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500">
+                                <option value="ALL">All Classes (Grade 1 - 10)</option>
+                                <option value="1">Grade 1</option>
+                                <option value="2">Grade 2</option>
+                                <option value="3">Grade 3</option>
+                                <option value="4">Grade 4</option>
+                                <option value="5">Grade 5</option>
+                                <option value="6">Grade 6</option>
+                                <option value="7">Grade 7</option>
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10" selected>Grade 10</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-600 mb-1" data-i18n="filterGender">Gender</label>
+                            <select id="studentGenderFilter" onchange="renderStudentTable()" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500">
+                                <option value="ALL">All Genders</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-600 mb-1" data-i18n="searchByName">Search Name / Code</label>
+                            <input type="text" id="studentSearchInput" onkeyup="renderStudentTable()" placeholder="Search student name or IEMIS ID..." class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <!-- Students Table -->
+                    <div class="overflow-x-auto rounded-xl border border-gray-200">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-indigo-900 text-white">
+                                <tr>
+                                    <th class="p-3 border-b">IEMIS Code</th>
+                                    <th class="p-3 border-b">Roll No</th>
+                                    <th class="p-3 border-b">Full Name</th>
+                                    <th class="p-3 border-b">Class</th>
+                                    <th class="p-3 border-b">Gender</th>
+                                    <th class="p-3 border-b">Guardian Name</th>
+                                    <th class="p-3 border-b">Date of Birth (BS)</th>
+                                    <th class="p-3 border-b text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentTableBody" class="divide-y divide-gray-200 bg-white">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 4: TEACHER & STAFF MANAGEMENT -->
+            <div id="teacherStaffView" class="view-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900" data-i18n="teacherStaffTitle">Teacher & Staff Accounts (Isolation System)</h3>
+                            <p class="text-xs text-gray-500" data-i18n="teacherStaffSub">Assign Login IDs and specific Subject columns permission for Exam Entry</p>
+                        </div>
+                        <button onclick="openAddTeacherModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition flex items-center">
+                            <i class="fa-solid fa-plus mr-1.5"></i><span data-i18n="addTeacherBtn">Add Teacher / Staff</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-gray-200">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-indigo-900 text-white">
+                                <tr>
+                                    <th class="p-3 border-b">Teacher ID</th>
+                                    <th class="p-3 border-b">Full Name</th>
+                                    <th class="p-3 border-b">Designation</th>
+                                    <th class="p-3 border-b">Phone</th>
+                                    <th class="p-3 border-b">Assigned Subject Columns</th>
+                                    <th class="p-3 border-b">Login Password</th>
+                                    <th class="p-3 border-b text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teacherTableBody" class="divide-y divide-gray-200 bg-white">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 5: SUBJECT CONFIGURATION (Dynamic CDC 2083) -->
+            <div id="subjectConfigView" class="view-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900" data-i18n="subjectConfigHeading">CDC 2083 Dynamic Subject Configuration</h3>
+                            <p class="text-xs text-gray-500" data-i18n="subjectConfigSub">Configure Credit Hours, Theory & Internal Pass/Full Marks per Grade</p>
+                        </div>
+                        <button onclick="openAddSubjectModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition flex items-center">
+                            <i class="fa-solid fa-plus mr-1.5"></i><span data-i18n="addSubjectBtn">Add New Subject</span>
+                        </button>
+                    </div>
+
+                    <div class="mb-4 bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100 flex items-center space-x-3">
+                        <label class="text-xs font-bold text-indigo-900" data-i18n="selectClassToConfig">Select Grade/Class to Manage:</label>
+                        <select id="configClassSelect" onchange="renderSubjectConfigTable()" class="px-3 py-1.5 bg-white border border-indigo-300 rounded-lg text-xs font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500">
+                            <option value="1">Grade 1</option>
+                            <option value="2">Grade 2</option>
+                            <option value="3">Grade 3</option>
+                            <option value="4">Grade 4</option>
+                            <option value="5">Grade 5</option>
+                            <option value="6">Grade 6</option>
+                            <option value="7">Grade 7</option>
+                            <option value="8">Grade 8</option>
+                            <option value="9">Grade 9</option>
+                            <option value="10" selected>Grade 10</option>
+                        </select>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-gray-200">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-indigo-900 text-white">
+                                <tr>
+                                    <th class="p-3 border-b">Subject Code</th>
+                                    <th class="p-3 border-b">Subject Title</th>
+                                    <th class="p-3 border-b text-center">Credit Hours</th>
+                                    <th class="p-3 border-b text-center">Theory Full (FM)</th>
+                                    <th class="p-3 border-b text-center">Theory Pass (PM 35%)</th>
+                                    <th class="p-3 border-b text-center">Internal/Practical FM</th>
+                                    <th class="p-3 border-b text-center">Internal Pass (PM 40%)</th>
+                                    <th class="p-3 border-b text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subjectConfigTableBody" class="divide-y divide-gray-200 bg-white">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 6: MANAGE EXAM MARKS MATRIX -->
+            <div id="manageExamView" class="view-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h3 class="text-xl font-bold text-gray-900" data-i18n="examMatrixHeading">Comprehensive Exam Marks Matrix (2083 BS)</h3>
+                                <span id="teacherIsolationBadge" class="hidden bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300">Teacher Isolation Active</span>
+                            </div>
+                            <p class="text-xs text-gray-500" data-i18n="examMatrixSub">Enter Theory & Internal marks side-by-side. Dynamic subject permission locking enabled.</p>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button onclick="saveExamMarksToState()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center">
+                                <i class="fa-solid fa-floppy-disk mr-1.5"></i><span data-i18n="saveMarksBtn">Save All Marks</span>
+                            </button>
+                            <button onclick="exportMarksToExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition flex items-center">
+                                <i class="fa-solid fa-file-excel mr-1.5"></i><span data-i18n="exportMarksExcel">Export Marks Excel</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Exam Select Bar -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-indigo-50/60 p-4 rounded-xl border border-indigo-100 mb-4">
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1" data-i18n="selectClass">Select Grade/Class</label>
+                            <select id="examClassSelect" onchange="renderExamMatrixTable()" class="w-full px-3 py-1.5 bg-white border border-indigo-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500">
+                                <option value="1">Grade 1</option>
+                                <option value="2">Grade 2</option>
+                                <option value="3">Grade 3</option>
+                                <option value="4">Grade 4</option>
+                                <option value="5">Grade 5</option>
+                                <option value="6">Grade 6</option>
+                                <option value="7">Grade 7</option>
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10" selected>Grade 10</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1" data-i18n="selectTerminal">Terminal Evaluation</label>
+                            <select id="examTermSelect" onchange="renderExamMatrixTable()" class="w-full px-3 py-1.5 bg-white border border-indigo-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500">
+                                <option value="First Term">First Terminal Evaluation 2083</option>
+                                <option value="Second Term">Second Terminal Evaluation 2083</option>
+                                <option value="Third Term">Third Terminal Evaluation 2083</option>
+                                <option value="Final Term" selected>Annual CDC Final Examination 2083</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-end">
+                            <p class="text-[11px] text-indigo-800 bg-white p-2 rounded-lg border border-indigo-200 w-full">
+                                <i class="fa-solid fa-circle-info text-indigo-600 mr-1"></i>
+                                <span data-i18n="autoSaveTip">Auto-saves to browser storage as you type.</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Marks Entry Matrix Table -->
+                    <div class="overflow-x-auto rounded-xl border border-gray-200 custom-scrollbar max-h-[500px]">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead id="examMatrixHeader" class="bg-indigo-900 text-white sticky top-0 z-10">
+                                <!-- JS Dynamic Header -->
+                            </thead>
+                            <tbody id="examMatrixBody" class="divide-y divide-gray-200 bg-white">
+                                <!-- JS Dynamic Student Matrix Inputs -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 7: DAILY ATTENDANCE -->
+            <div id="attendanceView" class="view-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900" data-i18n="attendanceHeading">Daily Attendance Tracker</h3>
+                            <p class="text-xs text-gray-500" data-i18n="attendanceSub">Mark daily student presence/absence per class</p>
+                        </div>
+                        <button onclick="saveAttendanceRecord()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition flex items-center">
+                            <i class="fa-solid fa-floppy-disk mr-1.5"></i><span data-i18n="saveAttendance">Save Attendance</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="selectClass">Select Grade/Class</label>
+                            <select id="attendanceClassSelect" onchange="renderAttendanceTable()" class="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold">
+                                <option value="1">Grade 1</option>
+                                <option value="2">Grade 2</option>
+                                <option value="3">Grade 3</option>
+                                <option value="4">Grade 4</option>
+                                <option value="5">Grade 5</option>
+                                <option value="6">Grade 6</option>
+                                <option value="7">Grade 7</option>
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10" selected>Grade 10</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1" data-i18n="attendanceDate">Attendance Date (BS)</label>
+                            <input type="text" id="attendanceDatePicker" value="2083-06-15" class="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold">
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-gray-200">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-indigo-900 text-white">
+                                <tr>
+                                    <th class="p-3 border-b">Roll No</th>
+                                    <th class="p-3 border-b">IEMIS ID</th>
+                                    <th class="p-3 border-b">Student Name</th>
+                                    <th class="p-3 border-b text-center">Attendance Status</th>
+                                    <th class="p-3 border-b">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody" class="divide-y divide-gray-200 bg-white">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 8: CDC GRADE SHEET PRINT VIEW -->
+            <div id="gradeSheetView" class="view-panel hidden space-y-6">
+                <!-- Controls bar (No Print) -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 no-print">
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <select id="gradeSheetClassSelect" onchange="populateGradeSheetStudentDropdown()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold">
+                            <option value="10" selected>Grade 10</option>
+                            <option value="9">Grade 9</option>
+                            <option value="8">Grade 8</option>
+                        </select>
+                        <select id="gradeSheetStudentSelect" onchange="renderPrintableGradeSheet()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold">
+                            <!-- Populated JS -->
+                        </select>
+                    </div>
+
+                    <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                        <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center">
+                            <i class="fa-solid fa-print mr-1.5"></i><span data-i18n="printGradeSheet">Print Official Grade Sheet</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- OFFICIAL CDC GRADE SHEET CARD -->
+                <div id="gradeSheetPrintCard" class="bg-white p-8 rounded-xl shadow-md border border-gray-200 max-w-4xl mx-auto text-gray-900">
+                    <!-- Head Section -->
+                    <div class="text-center border-b-2 border-indigo-900 pb-4 mb-4 relative">
+                        <img id="gsLogo" src="https://placehold.co/120x120/4338ca/ffffff?text=EMIS+Logo" class="w-20 h-20 absolute left-0 top-0 object-cover rounded-full" alt="Logo">
+                        
+                        <p class="text-xs font-bold uppercase tracking-wider text-red-700 font-sans">Government of Nepal</p>
+                        <p class="text-xs font-semibold text-gray-700">Ministry of Education, Science and Technology</p>
+                        <p class="text-xs font-semibold text-gray-700">Center for Education and Human Resource Development (CEHRD)</p>
+                        <h2 id="gsSchoolName" class="text-xl font-extrabold text-indigo-950 mt-1 uppercase">Shree Mahadevsthan Secondary School</h2>
+                        <p id="gsSchoolAddr" class="text-xs text-gray-600">Dhunibesi-5, Kumaikhola, Dhading</p>
+                        <p class="text-xs font-mono font-bold text-indigo-800 mt-0.5">IEMIS CODE: <span id="gsSchoolCode">260010042</span></p>
+
+                        <div class="mt-3 inline-block bg-indigo-900 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
+                            GRADE SHEET / PROGRESS REPORT (2083 BS)
+                        </div>
+                    </div>
+
+                    <!-- Student Info Box -->
+                    <div class="grid grid-cols-2 text-xs gap-2 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <p><strong>Student Name:</strong> <span id="gsStudentName" class="font-bold text-indigo-900 uppercase">--</span></p>
+                        <p><strong>IEMIS Student ID:</strong> <span id="gsStudentCode" class="font-mono font-bold">--</span></p>
+                        <p><strong>Class/Grade:</strong> <span id="gsClass" class="font-bold">--</span></p>
+                        <p><strong>Roll No:</strong> <span id="gsRoll">--</span></p>
+                        <p><strong>Date of Birth (BS):</strong> <span id="gsDob">--</span></p>
+                        <p><strong>Evaluation Term:</strong> <span id="gsTerm" class="font-bold text-gray-800">Annual CDC Final Examination 2083</span></p>
+                    </div>
+
+                    <!-- Marks / Subject Evaluation Table -->
+                    <div class="overflow-x-auto mb-4">
+                        <table class="w-full text-left border-collapse border border-gray-300 text-[11px]">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-800 uppercase font-bold text-[10px]">
+                                    <th class="border border-gray-300 p-1.5" rowspan="2">SN</th>
+                                    <th class="border border-gray-300 p-1.5" rowspan="2">Subject Code & Name</th>
+                                    <th class="border border-gray-300 p-1.5 text-center" rowspan="2">Credit Hour</th>
+                                    <th class="border border-gray-300 p-1.5 text-center" colspan="3">Obtained Grade</th>
+                                    <th class="border border-gray-300 p-1.5 text-center" rowspan="2">Final Grade</th>
+                                    <th class="border border-gray-300 p-1.5 text-center" rowspan="2">Grade Point</th>
+                                </tr>
+                                <tr class="bg-gray-50 text-gray-700 text-[10px]">
+                                    <th class="border border-gray-300 p-1 text-center">TH</th>
+                                    <th class="border border-gray-300 p-1 text-center">IN</th>
+                                    <th class="border border-gray-300 p-1 text-center">Overall</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gsTableBody">
+                                <!-- Dynamic JS -->
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-indigo-50 font-bold text-indigo-950">
+                                    <td class="border border-gray-300 p-1.5 text-right" colspan="2">TOTAL / CUMULATIVE GPA:</td>
+                                    <td id="gsTotalCredit" class="border border-gray-300 p-1.5 text-center">0.0</td>
+                                    <td class="border border-gray-300 p-1.5 text-center" colspan="3">--</td>
+                                    <td id="gsFinalGradeAvg" class="border border-gray-300 p-1.5 text-center text-sm font-extrabold text-indigo-900">--</td>
+                                    <td id="gsCalculatedGPA" class="border border-gray-300 p-1.5 text-center text-sm font-extrabold text-indigo-900">0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- CDC Grading Scale Standard Reference Grid -->
+                    <div class="mb-6 border border-gray-200 rounded p-2 text-[9px] bg-gray-50/50">
+                        <p class="font-bold mb-1 text-gray-700 uppercase">CDC Nepal Grading System Reference (2083 BS Directive):</p>
+                        <div class="grid grid-cols-8 gap-1 text-center">
+                            <div class="bg-white p-1 rounded border">90-100%: <strong>A+</strong> (4.0)</div>
+                            <div class="bg-white p-1 rounded border">80-89%: <strong>A</strong> (3.6)</div>
+                            <div class="bg-white p-1 rounded border">70-79%: <strong>B+</strong> (3.2)</div>
+                            <div class="bg-white p-1 rounded border">60-69%: <strong>B</strong> (2.8)</div>
+                            <div class="bg-white p-1 rounded border">50-59%: <strong>C+</strong> (2.4)</div>
+                            <div class="bg-white p-1 rounded border">40-49%: <strong>C</strong> (2.0)</div>
+                            <div class="bg-white p-1 rounded border">35-39%: <strong>D</strong> (1.6)</div>
+                            <div class="bg-red-50 text-red-700 p-1 rounded border border-red-200">&lt;35%: <strong>NG</strong> (0.0)</div>
+                        </div>
+                    </div>
+
+                    <!-- Signatures Block -->
+                    <div class="grid grid-cols-3 gap-4 text-center text-xs pt-8 border-t border-gray-300">
+                        <div>
+                            <p class="font-bold text-gray-800" id="gsClassTeacherSig">----------------------</p>
+                            <p class="text-gray-500">Prepared By / Class Teacher</p>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800">2083-06-15</p>
+                            <p class="text-gray-500">Date of Issue</p>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800" id="gsHeadTeacherSig">----------------------</p>
+                            <p class="text-gray-500">Headteacher Signature & Seal</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODALS SECTION -->
+
+    <!-- MODAL 1: ADD / EDIT STUDENT MODAL -->
+    <div id="studentModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-indigo-900 text-white px-5 py-3.5 flex justify-between items-center">
+                <h4 id="studentModalTitle" class="font-bold text-sm">Add New IEMIS Student</h4>
+                <button onclick="closeStudentModal()" class="text-gray-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="studentForm" onsubmit="handleSaveStudent(event)" class="p-5 space-y-3.5 text-xs">
+                <input type="hidden" id="modalStudentIndex" value="-1">
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">IEMIS Unique Code *</label>
+                    <input type="text" id="modalStdCode" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Full Student Name *</label>
+                    <input type="text" id="modalStdName" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Class / Grade *</label>
+                        <select id="modalStdClass" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="1">Grade 1</option>
+                            <option value="2">Grade 2</option>
+                            <option value="3">Grade 3</option>
+                            <option value="4">Grade 4</option>
+                            <option value="5">Grade 5</option>
+                            <option value="6">Grade 6</option>
+                            <option value="7">Grade 7</option>
+                            <option value="8">Grade 8</option>
+                            <option value="9">Grade 9</option>
+                            <option value="10" selected>Grade 10</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Roll Number *</label>
+                        <input type="number" id="modalStdRoll" required min="1" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Gender *</label>
+                        <select id="modalStdGender" required class="w-full px-3 py-2 border rounded-lg">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Date of Birth (BS)</label>
+                        <input type="text" id="modalStdDob" placeholder="2068-04-12" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Father / Mother Guardian Name</label>
+                    <input type="text" id="modalStdGuardian" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div class="flex justify-end space-x-2 pt-3 border-t">
+                    <button type="button" onclick="closeStudentModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg">Save Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADD / EDIT TEACHER MODAL -->
+    <div id="teacherModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-indigo-900 text-white px-5 py-3.5 flex justify-between items-center">
+                <h4 id="teacherModalTitle" class="font-bold text-sm">Add Teacher / Staff Account</h4>
+                <button onclick="closeTeacherModal()" class="text-gray-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="teacherForm" onsubmit="handleSaveTeacher(event)" class="p-5 space-y-3.5 text-xs">
+                <input type="hidden" id="modalTeacherIndex" value="-1">
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Teacher Login ID *</label>
+                    <input type="text" id="modalTchId" required placeholder="T-101" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Teacher Full Name *</label>
+                    <input type="text" id="modalTchName" required class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Designation</label>
+                        <input type="text" id="modalTchDesig" placeholder="Secondary Teacher" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Phone Number</label>
+                        <input type="text" id="modalTchPhone" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Assigned Subject (Isolation Lock Column)</label>
+                    <input type="text" id="modalTchSub" placeholder="e.g. Mathematics or Science" class="w-full px-3 py-2 border rounded-lg">
+                    <p class="text-[10px] text-gray-500 mt-0.5">When logged in, this teacher can only edit this specific subject column.</p>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Account Password *</label>
+                    <input type="text" id="modalTchPass" required class="w-full px-3 py-2 border rounded-lg font-mono">
+                </div>
+                <div class="flex justify-end space-x-2 pt-3 border-t">
+                    <button type="button" onclick="closeTeacherModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg">Save Teacher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ADD / EDIT SUBJECT MODAL -->
+    <div id="subjectModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-indigo-900 text-white px-5 py-3.5 flex justify-between items-center">
+                <h4 id="subjectModalTitle" class="font-bold text-sm">Add CDC Subject Configuration</h4>
+                <button onclick="closeSubjectModal()" class="text-gray-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="subjectForm" onsubmit="handleSaveSubject(event)" class="p-5 space-y-3 text-xs">
+                <input type="hidden" id="modalSubIndex" value="-1">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Subject Code *</label>
+                        <input type="text" id="modalSubCode" required placeholder="MATH10" class="w-full px-3 py-1.5 border rounded-lg font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Credit Hours *</label>
+                        <input type="number" step="0.5" id="modalSubCredit" required value="4.0" class="w-full px-3 py-1.5 border rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Subject Title / Name *</label>
+                    <input type="text" id="modalSubName" required placeholder="Mathematics" class="w-full px-3 py-1.5 border rounded-lg">
+                </div>
+                <div class="p-3 bg-indigo-50/60 rounded-xl space-y-2 border border-indigo-100">
+                    <p class="font-bold text-indigo-950 text-[11px]">Theory Evaluation Marks</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold text-gray-600">Full Marks (FM)</label>
+                            <input type="number" id="modalSubThFM" required value="75" class="w-full px-2 py-1 border rounded">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600">Pass Marks (PM 35%)</label>
+                            <input type="number" step="0.1" id="modalSubThPM" required value="26.25" class="w-full px-2 py-1 border rounded">
+                        </div>
+                    </div>
+                </div>
+                <div class="p-3 bg-emerald-50/60 rounded-xl space-y-2 border border-emerald-100">
+                    <p class="font-bold text-emerald-950 text-[11px]">Internal / Practical Evaluation Marks</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold text-gray-600">Full Marks (FM)</label>
+                            <input type="number" id="modalSubInFM" required value="25" class="w-full px-2 py-1 border rounded">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600">Pass Marks (PM 40%)</label>
+                            <input type="number" step="0.1" id="modalSubInPM" required value="10.0" class="w-full px-2 py-1 border rounded">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeSubjectModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg">Save Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: EXCEL DATA SYNC & SAMPLE DOWNLOAD -->
+    <div id="excelSyncModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-emerald-700 text-white px-5 py-4 flex justify-between items-center">
+                <h4 class="font-bold text-sm flex items-center">
+                    <i class="fa-solid fa-file-excel mr-2 text-lg"></i> IEMIS Excel Data Sync & Import Center
+                </h4>
+                <button onclick="closeExcelSyncModal()" class="text-emerald-100 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-6 text-xs">
+                <!-- Download Template Box -->
+                <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <h5 class="font-bold text-emerald-900 mb-1">1. Download Sample Excel Templates</h5>
+                    <p class="text-gray-600 mb-3">Get standardized IEMIS `.xlsx` files pre-formatted for bulk upload.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="downloadSampleExcel('students')" class="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-semibold rounded border border-emerald-300 shadow-sm flex items-center">
+                            <i class="fa-solid fa-download mr-1"></i> Student Roster Template
+                        </button>
+                        <button onclick="downloadSampleExcel('teachers')" class="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 font-semibold rounded border border-emerald-300 shadow-sm flex items-center">
+                            <i class="fa-solid fa-download mr-1"></i> Teachers Template
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Excel Import Box -->
+                <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                    <h5 class="font-bold text-indigo-900 mb-1">2. Upload & Parse Excel File</h5>
+                    <p class="text-gray-600 mb-3">Import `.xlsx` or `.xls` file to populate Students, Teachers or Exam Marks directly into system state.</p>
+                    
+                    <div class="space-y-3">
+                        <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
+                        <div class="flex justify-end space-x-2">
+                            <button onclick="processUploadedExcel('students')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow">
+                                Parse as Student Roster
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-100 px-6 py-3 text-right">
+                <button onclick="closeExcelSyncModal()" class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg text-xs">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: OTP & PASSWORD RESET -->
+    <div id="passwordResetModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="bg-indigo-900 text-white px-5 py-3.5 flex justify-between items-center">
+                <h4 class="font-bold text-sm">IEMIS OTP Password Recovery</h4>
+                <button onclick="closePasswordResetModal()" class="text-gray-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="p-5 space-y-4 text-xs">
+                <!-- Step 1: Input Mobile/Email -->
+                <div id="otpStep1" class="space-y-3">
+                    <p class="text-gray-600">Enter your registered Mobile Number or Email address to receive a 4-digit verification OTP code.</p>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Mobile or Email *</label>
+                        <input type="text" id="resetContactInput" placeholder="98XXXXXXXX or email@school.edu.np" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <button onclick="sendOtpCode()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow">
+                        Send OTP Code
+                    </button>
+                </div>
+
+                <!-- Step 2: OTP Verification & New Pass -->
+                <div id="otpStep2" class="hidden space-y-3">
+                    <div class="p-2.5 bg-amber-50 text-amber-900 rounded-lg border border-amber-200 text-[11px]">
+                        Demo OTP Code sent to your mobile: <strong class="text-indigo-900 text-sm">1234</strong>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Enter 4-Digit OTP *</label>
+                        <input type="text" id="otpCodeInput" maxlength="4" placeholder="1234" class="w-full px-3 py-2 border rounded-lg text-center font-bold text-lg tracking-widest">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">New Password *</label>
+                        <input type="password" id="newPasswordInput" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <button onclick="verifyOtpAndResetPassword()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow">
+                        Verify & Reset Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        /* ==========================================================================
+           1. INTERNATIONALIZATION (ENGLISH & DEVANGARI NEPALI TRANSLATIONS)
+           ========================================================================== */
+        const translations = {
+            EN: {
+                acadYear: "Academic Year",
+                welcomePrefix: "Welcome to IEMIS,",
+                codeLabel: "EMIS Code",
+                ministryLabel: "Ministry of Education, Science and Technology",
+                statProvinces: "Provinces",
+                statDistricts: "Districts",
+                statMunicipalities: "Municipalities",
+                statAcadYear: "Academic Year",
+                quickMenuTitle: "Quick Menu",
+                quickMenuSubtitle: "Primary Operations",
+                qmDashboard: "Dashboard",
+                qmSchoolProfile: "School Profile",
+                qmStudentInfo: "Student Information",
+                qmManageExam: "Manage Exam",
+                qmTeacherStaff: "Teacher & Staff",
+                qmAttendance: "Daily Attendance",
+                qmGradeSheet: "CDC Grade Sheet",
+                qmSubjects: "Subject Setup",
+                qmExcelSync: "Excel Sync",
+                chartTitle: "Student Enrollment Demographics (Class 1-10)",
+                updatedLive: "Live State",
+                noticeTitle: "Important Notices & Updates",
+                notice1Title: "छात्रवृत्ति वितरण तथा विद्यार्थी सत्यापन सम्बन्धमा संस्थागत विवरण प्रविष्टि गराउने सूचना",
+                notice2Title: "सामुदायिक विद्यालयका विद्यार्थी सत्यापन गर्ने सम्बन्धी अत्यन्त जरुरी सूचना",
+                notice3Title: "CDC Letter Grading Directive 2083 Implementation Guidelines for Internal & Theory Evaluation",
+                notice4Title: "IEMIS Web Portal Maintenance Schedule for Academic Year 2083 Data Sync",
+                sysStatus: "System Quick Stats",
+                dashEnrolledStd: "Total Students",
+                dashActiveTeachers: "Total Staff",
+                menuDashboard: "Dashboard",
+                menuSchoolProfile: "School Profile",
+                menuStudentRecord: "Student Record",
+                menuTeacherStaff: "Teacher & Staff",
+                menuSubjectConfig: "CDC Subject Config",
+                menuManageExam: "Manage Exam Marks",
+                menuAttendance: "Daily Attendance",
+                menuGradeSheet: "CDC Grade Sheets",
+                dataTools: "Data Management",
+                excelSyncBtn: "Excel Data Sync",
+                resetPassword: "Reset Password",
+                logout: "Logout",
+                schoolProfileHeading: "School Profile & General Information",
+                schoolProfileSub: "Manage official IEMIS institutional details and logo upload",
+                saveChanges: "Save Profile",
+                schoolLogoLabel: "Official School Emblem / Logo",
+                logoFormatInfo: "JPG or PNG. Maximum 2MB. Used in Grade Sheets.",
+                spSchoolName: "School Name (English)",
+                spSchoolNameNP: "School Name (Nepali)",
+                spEmisCode: "IEMIS Code",
+                spHeadTeacher: "Headteacher Name",
+                spAddress: "Address / Location",
+                spDistrict: "District & Municipality",
+                spPhone: "Contact Phone",
+                spEmail: "Official Email",
+                studentRecordTitle: "Student Master Directory",
+                studentRecordSub: "Add, manage and import IEMIS registered students",
+                addStudentBtn: "Add New Student",
+                importExportExcel: "Import/Export Excel",
+                filterClass: "Filter Grade/Class",
+                filterGender: "Gender",
+                searchByName: "Search Name / Code",
+                teacherStaffTitle: "Teacher & Staff Accounts (Isolation System)",
+                teacherStaffSub: "Assign Login IDs and specific Subject columns permission for Exam Entry",
+                addTeacherBtn: "Add Teacher / Staff",
+                subjectConfigHeading: "CDC 2083 Dynamic Subject Configuration",
+                subjectConfigSub: "Configure Credit Hours, Theory & Internal Pass/Full Marks per Grade",
+                addSubjectBtn: "Add New Subject",
+                selectClassToConfig: "Select Grade/Class to Manage:",
+                examMatrixHeading: "Comprehensive Exam Marks Matrix (2083 BS)",
+                examMatrixSub: "Enter Theory & Internal marks side-by-side. Dynamic subject permission locking enabled.",
+                saveMarksBtn: "Save All Marks",
+                exportMarksExcel: "Export Marks Excel",
+                selectClass: "Select Grade/Class",
+                selectTerminal: "Terminal Evaluation",
+                autoSaveTip: "Auto-saves to browser storage as you type.",
+                attendanceHeading: "Daily Attendance Tracker",
+                attendanceSub: "Mark daily student presence/absence per class",
+                saveAttendance: "Save Attendance",
+                attendanceDate: "Attendance Date (BS)",
+                printGradeSheet: "Print Official Grade Sheet"
+            },
+            NP: {
+                acadYear: "शैक्षिक वर्ष",
+                welcomePrefix: "IEMIS मा स्वागत छ,",
+                codeLabel: "इमिस कोड",
+                ministryLabel: "शिक्षा, विज्ञान तथा प्रविधि मन्त्रालय",
+                statProvinces: "प्रदेशहरू",
+                statDistricts: "जिल्लाहरू",
+                statMunicipalities: "पालिकाहरू",
+                statAcadYear: "शैक्षिक वर्ष",
+                quickMenuTitle: "द्रुत मेनु",
+                quickMenuSubtitle: "मुख्य कार्यहरू",
+                qmDashboard: "ड्यासबोर्ड",
+                qmSchoolProfile: "विद्यालय प्रोफाइल",
+                qmStudentInfo: "विद्यार्थी विवरण",
+                qmManageExam: "परीक्षा व्यवस्थापन",
+                qmTeacherStaff: "शिक्षक र कर्मचारी",
+                qmAttendance: "दैनिक हाजिरी",
+                qmGradeSheet: "पाठ्यक्रम ग्रेड सिट",
+                qmSubjects: "विषय सेटअप",
+                qmExcelSync: "एक्सेल सिंक",
+                chartTitle: "विद्यार्थी भर्ना संख्या (कक्षा १ - १०)",
+                updatedLive: "अद्यावधिक विवरण",
+                noticeTitle: "महत्वपूर्ण सूचना तथा अद्यावधिकहरू",
+                notice1Title: "छात्रवृत्ति वितरण तथा विद्यार्थी सत्यापन सम्बन्धमा संस्थागत विवरण प्रविष्टि गराउने सूचना",
+                notice2Title: "सामुदायिक विद्यालयका विद्यार्थी सत्यापन गर्ने सम्बन्धी अत्यन्त जरुरी सूचना",
+                notice3Title: "CDC लेटर ग्रेडिङ निर्देशिका २०८३ कार्यान्वयन ढाँचा",
+                notice4Title: "IEMIS वेब पोर्टल मर्मत तथा अद्यावधिक सम्बन्धी सूचना",
+                sysStatus: "प्रणाली संक्षेप",
+                dashEnrolledStd: "कुल विद्यार्थी",
+                dashActiveTeachers: "कुल जनशक्ति",
+                menuDashboard: "ड्यासबोर्ड",
+                menuSchoolProfile: "विद्यालय प्रोफाइल",
+                menuStudentRecord: "विद्यार्थी रेकर्ड",
+                menuTeacherStaff: "शिक्षक र कर्मचारी",
+                menuSubjectConfig: "विषय संरचना (CDC)",
+                menuManageExam: "परीक्षा अङ्क प्रविष्टि",
+                menuAttendance: "दैनिक हाजिरी",
+                menuGradeSheet: "ग्रेड सिट मुद्रण",
+                dataTools: "डाटा व्यवस्थापन",
+                excelSyncBtn: "एक्सेल डाटा सिंक",
+                resetPassword: "पासवर्ड परिवर्तन",
+                logout: "लगआउट",
+                schoolProfileHeading: "विद्यालयको विवरण तथा विवरणहरू",
+                schoolProfileSub: "आधिकारिक IEMIS विवरण तथा लोगो व्यवस्थापन गर्नुहोस्",
+                saveChanges: "प्रोफाइल सुरक्षित गर्नुहोस्",
+                schoolLogoLabel: "विद्यालयको आधिकारिक छाप / लोगो",
+                logoFormatInfo: "JPG वा PNG। अधिकतम २ MB। ग्रेड सिटमा प्रयोग हुन्छ।",
+                spSchoolName: "विद्यालयको नाम (अंग्रेजी)",
+                spSchoolNameNP: "विद्यालयको नाम (नेपाली)",
+                spEmisCode: "IEMIS कोड",
+                spHeadTeacher: "प्रधानाध्यापकको नाम",
+                spAddress: "ठेगाना / स्थान",
+                spDistrict: "जिल्ला र स्थानीय तह",
+                spPhone: "सम्पर्क फोन नम्बर",
+                spEmail: "आधिकारिक इमेल",
+                studentRecordTitle: "विद्यार्थीको मुख्य विवरण",
+                studentRecordSub: "नयाँ विद्यार्थी थप्नुहोस्, सम्पादन गर्नुहोस् वा एक्सेलबाट ल्याउनुहोस्",
+                addStudentBtn: "नयाँ विद्यार्थी थप्नुहोस्",
+                importExportExcel: "एक्सेल आयात/निर्यात",
+                filterClass: "कक्षा छनोट",
+                filterGender: "लिङ्ग",
+                searchByName: "नाम वा कोड खोज्नुहोस्",
+                teacherStaffTitle: "शिक्षक तथा कर्मचारी विवरण",
+                teacherStaffSub: "शिक्षक लगइन तथा विषयगत अङ्क प्रविष्टि अधिकार व्यवस्थापन",
+                addTeacherBtn: "शिक्षक/कर्मचारी थप्नुहोस्",
+                subjectConfigHeading: "CDC २०८३ विषय संरचना व्यवस्थापन",
+                subjectConfigSub: "कक्षा अनुसार क्रेडिट आवर, सैद्धान्तिक र आन्तरिक पूर्णाङ्क/उत्तीर्णाङ्क सेट गर्नुहोस्",
+                addSubjectBtn: "नयाँ विषय थप्नुहोस्",
+                selectClassToConfig: "कक्षा छनोट गर्नुहोस्:",
+                examMatrixHeading: "परीक्षा अङ्क प्रविष्टि तालिका (२०८३)",
+                examMatrixSub: "सैद्धान्तिक र आन्तरिक अङ्कहरू एकसाथ प्रविष्टि गर्नुहोस्।",
+                saveMarksBtn: "अङ्क सुरक्षित गर्नुहोस्",
+                exportMarksExcel: "एक्सेल निर्यात गर्नुहोस्",
+                selectClass: "कक्षा छनोट",
+                selectTerminal: "परीक्षा प्रकार",
+                autoSaveTip: "टाइप गर्दा स्वतः सुरक्षित हुन्छ।",
+                attendanceHeading: "दैनिक हाजिरी प्रणाली",
+                attendanceSub: "विद्यार्थीहरूको दैनिक उपस्थिति रेकर्ड गर्नुहोस्",
+                saveAttendance: "हाजिरी सुरक्षित गर्नुहोस्",
+                attendanceDate: "हाजिरी मिति (वि.सं.)",
+                printGradeSheet: "ग्रेड सिट प्रिन्ट गर्नुहोस्"
+            }
+        };
+
+        let currentLang = 'EN';
+
+        function toggleLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('langENBtn').className = lang === 'EN' ? "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-600 text-white shadow transition" : "px-2.5 py-0.5 rounded-full text-xs font-semibold text-indigo-200 hover:text-white transition";
+            document.getElementById('langNPBtn').className = lang === 'NP' ? "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-600 text-white shadow transition" : "px-2.5 py-0.5 rounded-full text-xs font-semibold text-indigo-200 hover:text-white transition";
+
+            document.querySelectorAll('[data-i18n]').forEach(elem => {
+                const key = elem.getAttribute('data-i18n');
+                if (translations[lang] && translations[lang][key]) {
+                    elem.innerText = translations[lang][key];
+                }
+            });
+            showToast(`Language switched to ${lang === 'EN' ? 'English' : 'नेपाली'}`, "info");
+        }
+
+        /* ==========================================================================
+           2. GLOBAL INITIAL STATE & LOCALSTORAGE DATA PERSISTENCE
+           ========================================================================== */
+        const DEFAULT_SCHOOL = {
+            name: "Shree Mahadevsthan Secondary School",
+            nameNP: "श्री महादेवस्थान माध्यमिक विद्यालय",
+            code: "260010042",
+            head: "Ram Bahadur Shrestha",
+            addr: "Dhunibesi-5, Kumaikhola, Dhading",
+            district: "Dhading, Dhunibesi Municipality",
+            phone: "+977-9851023456",
+            email: "mahadevsthan.dhading@gmail.com",
+            logo: "https://placehold.co/150x150/4338ca/ffffff?text=EMIS+Logo"
+        };
+
+        const DEFAULT_SUBJECTS = {
+            "10": [
+                { code: "NEP10", name: "Nepali", credit: 4.0, thFM: 75, thPM: 26.25, inFM: 25, inPM: 10.0 },
+                { code: "ENG10", name: "English", credit: 4.0, thFM: 75, thPM: 26.25, inFM: 25, inPM: 10.0 },
+                { code: "MAT10", name: "Mathematics", credit: 4.0, thFM: 75, thPM: 26.25, inFM: 25, inPM: 10.0 },
+                { code: "SCI10", name: "Science & Technology", credit: 4.0, thFM: 75, thPM: 26.25, inFM: 25, inPM: 10.0 },
+                { code: "SOC10", name: "Social Studies", credit: 4.0, thFM: 75, thPM: 26.25, inFM: 25, inPM: 10.0 }
+            ]
+        };
+
+        const DEFAULT_TEACHERS = [
+            { id: "T-101", name: "Hari Prasad Sharma", desig: "Senior Math Teacher", phone: "9841234567", assignedSub: "Mathematics", pass: "pass123" },
+            { id: "T-102", name: "Sita Kumari Thapa", desig: "Science Specialist", phone: "9851098765", assignedSub: "Science & Technology", pass: "pass123" }
+        ];
+
+        const DEFAULT_STUDENTS = [
+            { code: "2083001", roll: 1, name: "Aayush Karki", cls: "10", gender: "Male", guardian: "Ramesh Karki", dob: "2068-02-15" },
+            { code: "2083002", roll: 2, name: "Bipana Adhikari", cls: "10", gender: "Female", guardian: "Gita Adhikari", dob: "2068-05-20" },
+            { code: "2083003", roll: 3, name: "Chandan Gurung", cls: "10", gender: "Male", guardian: "Man Bahadur Gurung", dob: "2068-01-10" },
+            { code: "2083004", roll: 4, name: "Dikshya Tamang", cls: "10", gender: "Female", guardian: "Sonam Tamang", dob: "2068-09-04" },
+            { code: "2083005", roll: 5, name: "Eshan Shrestha", cls: "10", gender: "Male", guardian: "Prakash Shrestha", dob: "2068-11-12" }
+        ];
+
+        // System Active Session
+        let activeUser = { id: "admin", name: "Administrator", role: "ADMIN", assignedSub: null };
+
+        // State Store
+        let appData = {
+            school: JSON.parse(localStorage.getItem('iemis_school')) || DEFAULT_SCHOOL,
+            subjects: JSON.parse(localStorage.getItem('iemis_subjects')) || DEFAULT_SUBJECTS,
+            teachers: JSON.parse(localStorage.getItem('iemis_teachers')) || DEFAULT_TEACHERS,
+            students: JSON.parse(localStorage.getItem('iemis_students')) || DEFAULT_STUDENTS,
+            marks: JSON.parse(localStorage.getItem('iemis_marks')) || {}, // Key: `${cls}_${term}_${studentCode}_${subCode}` -> { th: 65, in: 22 }
+            attendance: JSON.parse(localStorage.getItem('iemis_attendance')) || {} // Key: `${cls}_${date}_${studentCode}` -> "Present" | "Absent"
+        };
+
+        function saveState(key) {
+            if (key) {
+                localStorage.setItem(`iemis_${key}`, JSON.stringify(appData[key]));
+            } else {
+                localStorage.setItem('iemis_school', JSON.stringify(appData.school));
+                localStorage.setItem('iemis_subjects', JSON.stringify(appData.subjects));
+                localStorage.setItem('iemis_teachers', JSON.stringify(appData.teachers));
+                localStorage.setItem('iemis_students', JSON.stringify(appData.students));
+                localStorage.setItem('iemis_marks', JSON.stringify(appData.marks));
+                localStorage.setItem('iemis_attendance', JSON.stringify(appData.attendance));
+            }
+        }
+
+        /* ==========================================================================
+           3. ROUTING & VIEW NAVIGATION
+           ========================================================================== */
+        function switchView(viewId) {
+            document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(viewId);
+            if (target) target.classList.remove('hidden');
+
+            // Sidebar highlight
+            document.querySelectorAll('aside nav button').forEach(btn => btn.classList.remove('sidebar-item-active'));
+            const navBtn = document.getElementById(`nav-${viewId}`);
+            if (navBtn) navBtn.classList.add('sidebar-item-active');
+
+            // View specific renders
+            if (viewId === 'schoolProfileView') loadSchoolProfileForm();
+            if (viewId === 'studentRecordView') renderStudentTable();
+            if (viewId === 'teacherStaffView') renderTeacherTable();
+            if (viewId === 'subjectConfigView') renderSubjectConfigTable();
+            if (viewId === 'manageExamView') renderExamMatrixTable();
+            if (viewId === 'attendanceView') renderAttendanceTable();
+            if (viewId === 'gradeSheetView') populateGradeSheetStudentDropdown();
+            if (viewId === 'dashboardView') updateDashboardStatsAndChart();
+
+            // Close mobile sidebar
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+            }
+        }
+
+        /* ==========================================================================
+           4. DASHBOARD STATS & CHART
+           ========================================================================== */
+        let enrollmentChartInstance = null;
+
+        function updateDashboardStatsAndChart() {
+            document.getElementById('dashSchoolNameTitle').innerText = appData.school.name;
+            document.getElementById('dashSchoolAddrSub').innerText = appData.school.addr;
+            document.getElementById('dashSchoolCodeSub').innerText = appData.school.code;
+
+            document.getElementById('dashTotalStudents').innerText = appData.students.length;
+            document.getElementById('dashTotalTeachers').innerText = appData.teachers.length;
+
+            // Render Demographics Chart
+            const ctx = document.getElementById('enrollmentChart').getContext('2d');
+            const classCounts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(c => {
+                return appData.students.filter(s => s.cls == c).length;
+            });
+
+            if (enrollmentChartInstance) enrollmentChartInstance.destroy();
+
+            enrollmentChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['G-1', 'G-2', 'G-3', 'G-4', 'G-5', 'G-6', 'G-7', 'G-8', 'G-9', 'G-10'],
+                    datasets: [{
+                        label: 'Enrolled Students',
+                        data: classCounts,
+                        backgroundColor: '#4f46e5',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        /* ==========================================================================
+           5. SCHOOL PROFILE & LOGO UPLOAD
+           ========================================================================== */
+        function loadSchoolProfileForm() {
+            document.getElementById('spName').value = appData.school.name || '';
+            document.getElementById('spNameNP').value = appData.school.nameNP || '';
+            document.getElementById('spCode').value = appData.school.code || '';
+            document.getElementById('spHead').value = appData.school.head || '';
+            document.getElementById('spAddr').value = appData.school.addr || '';
+            document.getElementById('spDistrict').value = appData.school.district || '';
+            document.getElementById('spPhone').value = appData.school.phone || '';
+            document.getElementById('spEmail').value = appData.school.email || '';
+            document.getElementById('schoolProfileLogoPreview').src = appData.school.logo || DEFAULT_SCHOOL.logo;
+        }
+
+        function saveSchoolProfile() {
+            appData.school.name = document.getElementById('spName').value;
+            appData.school.nameNP = document.getElementById('spNameNP').value;
+            appData.school.code = document.getElementById('spCode').value;
+            appData.school.head = document.getElementById('spHead').value;
+            appData.school.addr = document.getElementById('spAddr').value;
+            appData.school.district = document.getElementById('spDistrict').value;
+            appData.school.phone = document.getElementById('spPhone').value;
+            appData.school.email = document.getElementById('spEmail').value;
+
+            saveState('school');
+            showToast("School profile updated successfully!", "success");
+            updateDashboardStatsAndChart();
+        }
+
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    appData.school.logo = e.target.result;
+                    document.getElementById('schoolProfileLogoPreview').src = e.target.result;
+                    saveState('school');
+                    showToast("School logo updated!", "success");
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        /* ==========================================================================
+           6. STUDENT DIRECTORY (CRUD)
+           ========================================================================== */
+        function renderStudentTable() {
+            const clsFilter = document.getElementById('studentClassFilter').value;
+            const genderFilter = document.getElementById('studentGenderFilter').value;
+            const search = document.getElementById('studentSearchInput').value.toLowerCase();
+
+            let filtered = appData.students.filter(s => {
+                const matchClass = clsFilter === 'ALL' || s.cls == clsFilter;
+                const matchGender = genderFilter === 'ALL' || s.gender == genderFilter;
+                const matchSearch = s.name.toLowerCase().includes(search) || s.code.toLowerCase().includes(search);
+                return matchClass && matchGender && matchSearch;
+            });
+
+            const tbody = document.getElementById('studentTableBody');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-500">No student records found.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach((std, idx) => {
+                const realIndex = appData.students.indexOf(std);
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 font-mono font-bold text-indigo-900">${std.code}</td>
+                        <td class="p-3 font-bold text-center">${std.roll}</td>
+                        <td class="p-3 font-semibold text-gray-900">${std.name}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md font-bold">Grade ${std.cls}</span></td>
+                        <td class="p-3">${std.gender}</td>
+                        <td class="p-3">${std.guardian || '-'}</td>
+                        <td class="p-3">${std.dob || '-'}</td>
+                        <td class="p-3 text-center space-x-1">
+                            <button onclick="editStudent(${realIndex})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteStudent(${realIndex})" class="p-1.5 text-red-600 hover:bg-red-50 rounded"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openAddStudentModal() {
+            document.getElementById('studentModalTitle').innerText = "Add New IEMIS Student";
+            document.getElementById('modalStudentIndex').value = "-1";
+            document.getElementById('studentForm').reset();
+            document.getElementById('modalStdCode').value = "2083" + Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('studentModal').classList.remove('hidden');
+        }
+
+        function editStudent(index) {
+            const std = appData.students[index];
+            document.getElementById('studentModalTitle').innerText = "Edit Student Information";
+            document.getElementById('modalStudentIndex').value = index;
+            document.getElementById('modalStdCode').value = std.code;
+            document.getElementById('modalStdName').value = std.name;
+            document.getElementById('modalStdClass').value = std.cls;
+            document.getElementById('modalStdRoll').value = std.roll;
+            document.getElementById('modalStdGender').value = std.gender;
+            document.getElementById('modalStdDob').value = std.dob || '';
+            document.getElementById('modalStdGuardian').value = std.guardian || '';
+            document.getElementById('studentModal').classList.remove('hidden');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('studentModal').classList.add('hidden');
+        }
+
+        function handleSaveStudent(e) {
+            e.preventDefault();
+            const idx = parseInt(document.getElementById('modalStudentIndex').value);
+            const stdObj = {
+                code: document.getElementById('modalStdCode').value,
+                name: document.getElementById('modalStdName').value,
+                cls: document.getElementById('modalStdClass').value,
+                roll: parseInt(document.getElementById('modalStdRoll').value),
+                gender: document.getElementById('modalStdGender').value,
+                dob: document.getElementById('modalStdDob').value,
+                guardian: document.getElementById('modalStdGuardian').value
+            };
+
+            if (idx === -1) {
+                appData.students.push(stdObj);
+                showToast("New student added!", "success");
+            } else {
+                appData.students[idx] = stdObj;
+                showToast("Student details updated!", "success");
+            }
+
+            saveState('students');
+            closeStudentModal();
+            renderStudentTable();
+            updateDashboardStatsAndChart();
+        }
+
+        function deleteStudent(index) {
+            if (confirm("Are you sure you want to delete this student record?")) {
+                appData.students.splice(index, 1);
+                saveState('students');
+                renderStudentTable();
+                showToast("Student deleted.", "info");
+                updateDashboardStatsAndChart();
+            }
+        }
+
+        /* ==========================================================================
+           7. TEACHER & STAFF MANAGEMENT
+           ========================================================================== */
+        function renderTeacherTable() {
+            const tbody = document.getElementById('teacherTableBody');
+            tbody.innerHTML = '';
+
+            appData.teachers.forEach((t, idx) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 font-mono font-bold text-indigo-900">${t.id}</td>
+                        <td class="p-3 font-semibold text-gray-900">${t.name}</td>
+                        <td class="p-3">${t.desig}</td>
+                        <td class="p-3">${t.phone}</td>
+                        <td class="p-3"><span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-md font-bold">${t.assignedSub || 'All (Admin)'}</span></td>
+                        <td class="p-3 font-mono text-gray-600">${t.pass}</td>
+                        <td class="p-3 text-center space-x-1">
+                            <button onclick="loginAsTeacher('${t.id}')" title="Test Teacher Login" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><i class="fa-solid fa-right-to-bracket"></i></button>
+                            <button onclick="editTeacher(${idx})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteTeacher(${idx})" class="p-1.5 text-red-600 hover:bg-red-50 rounded"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openAddTeacherModal() {
+            document.getElementById('teacherModalTitle').innerText = "Add Teacher / Staff Account";
+            document.getElementById('modalTeacherIndex').value = "-1";
+            document.getElementById('teacherForm').reset();
+            document.getElementById('modalTchId').value = "T-" + Math.floor(100 + Math.random() * 900);
+            document.getElementById('teacherModal').classList.remove('hidden');
+        }
+
+        function editTeacher(index) {
+            const t = appData.teachers[index];
+            document.getElementById('teacherModalTitle').innerText = "Edit Teacher Account";
+            document.getElementById('modalTeacherIndex').value = index;
+            document.getElementById('modalTchId').value = t.id;
+            document.getElementById('modalTchName').value = t.name;
+            document.getElementById('modalTchDesig').value = t.desig;
+            document.getElementById('modalTchPhone').value = t.phone;
+            document.getElementById('modalTchSub').value = t.assignedSub || '';
+            document.getElementById('modalTchPass').value = t.pass;
+            document.getElementById('teacherModal').classList.remove('hidden');
+        }
+
+        function closeTeacherModal() {
+            document.getElementById('teacherModal').classList.add('hidden');
+        }
+
+        function handleSaveTeacher(e) {
+            e.preventDefault();
+            const idx = parseInt(document.getElementById('modalTeacherIndex').value);
+            const tObj = {
+                id: document.getElementById('modalTchId').value,
+                name: document.getElementById('modalTchName').value,
+                desig: document.getElementById('modalTchDesig').value,
+                phone: document.getElementById('modalTchPhone').value,
+                assignedSub: document.getElementById('modalTchSub').value,
+                pass: document.getElementById('modalTchPass').value
+            };
+
+            if (idx === -1) {
+                appData.teachers.push(tObj);
+                showToast("New teacher added!", "success");
+            } else {
+                appData.teachers[idx] = tObj;
+                showToast("Teacher details updated!", "success");
+            }
+
+            saveState('teachers');
+            closeTeacherModal();
+            renderTeacherTable();
+            updateDashboardStatsAndChart();
+        }
+
+        function deleteTeacher(index) {
+            if (confirm("Delete this teacher account?")) {
+                appData.teachers.splice(index, 1);
+                saveState('teachers');
+                renderTeacherTable();
+                showToast("Teacher account deleted.", "info");
+            }
+        }
+
+        function loginAsTeacher(teacherId) {
+            const t = appData.teachers.find(item => item.id === teacherId);
+            if (t) {
+                activeUser = {
+                    id: t.id,
+                    name: t.name,
+                    role: "TEACHER",
+                    assignedSub: t.assignedSub
+                };
+                updateHeaderUserUI();
+                showToast(`Logged in as Teacher: ${t.name} (Assigned: ${t.assignedSub})`, "warning");
+                switchView('manageExamView');
+            }
+        }
+
+        /* ==========================================================================
+           8. CDC SUBJECT CONFIGURATION
+           ========================================================================== */
+        function renderSubjectConfigTable() {
+            const cls = document.getElementById('configClassSelect').value;
+            const subjects = appData.subjects[cls] || [];
+            const tbody = document.getElementById('subjectConfigTableBody');
+            tbody.innerHTML = '';
+
+            if (subjects.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-500">No subjects configured for Grade ${cls}. Click "Add New Subject" to configure.</td></tr>`;
+                return;
+            }
+
+            subjects.forEach((s, idx) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 font-mono font-bold text-indigo-900">${s.code}</td>
+                        <td class="p-3 font-semibold text-gray-900">${s.name}</td>
+                        <td class="p-3 text-center font-bold">${s.credit}</td>
+                        <td class="p-3 text-center">${s.thFM}</td>
+                        <td class="p-3 text-center text-indigo-700 font-semibold">${s.thPM}</td>
+                        <td class="p-3 text-center">${s.inFM}</td>
+                        <td class="p-3 text-center text-emerald-700 font-semibold">${s.inPM}</td>
+                        <td class="p-3 text-center space-x-1">
+                            <button onclick="editSubject('${cls}', ${idx})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteSubject('${cls}', ${idx})" class="p-1.5 text-red-600 hover:bg-red-50 rounded"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openAddSubjectModal() {
+            document.getElementById('subjectModalTitle').innerText = "Add Dynamic Subject";
+            document.getElementById('modalSubIndex').value = "-1";
+            document.getElementById('subjectForm').reset();
+            document.getElementById('subjectModal').classList.remove('hidden');
+        }
+
+        function editSubject(cls, idx) {
+            const s = appData.subjects[cls][idx];
+            document.getElementById('subjectModalTitle').innerText = "Edit Dynamic Subject";
+            document.getElementById('modalSubIndex').value = idx;
+            document.getElementById('modalSubCode').value = s.code;
+            document.getElementById('modalSubName').value = s.name;
+            document.getElementById('modalSubCredit').value = s.credit;
+            document.getElementById('modalSubThFM').value = s.thFM;
+            document.getElementById('modalSubThPM').value = s.thPM;
+            document.getElementById('modalSubInFM').value = s.inFM;
+            document.getElementById('modalSubInPM').value = s.inPM;
+            document.getElementById('subjectModal').classList.remove('hidden');
+        }
+
+        function closeSubjectModal() {
+            document.getElementById('subjectModal').classList.add('hidden');
+        }
+
+        function handleSaveSubject(e) {
+            e.preventDefault();
+            const cls = document.getElementById('configClassSelect').value;
+            const idx = parseInt(document.getElementById('modalSubIndex').value);
+
+            if (!appData.subjects[cls]) appData.subjects[cls] = [];
+
+            const subObj = {
+                code: document.getElementById('modalSubCode').value,
+                name: document.getElementById('modalSubName').value,
+                credit: parseFloat(document.getElementById('modalSubCredit').value),
+                thFM: parseFloat(document.getElementById('modalSubThFM').value),
+                thPM: parseFloat(document.getElementById('modalSubThPM').value),
+                inFM: parseFloat(document.getElementById('modalSubInFM').value),
+                inPM: parseFloat(document.getElementById('modalSubInPM').value)
+            };
+
+            if (idx === -1) {
+                appData.subjects[cls].push(subObj);
+                showToast("Subject added to class setup!", "success");
+            } else {
+                appData.subjects[cls][idx] = subObj;
+                showToast("Subject configuration updated!", "success");
+            }
+
+            saveState('subjects');
+            closeSubjectModal();
+            renderSubjectConfigTable();
+        }
+
+        function deleteSubject(cls, idx) {
+            if (confirm("Delete subject from Grade setup?")) {
+                appData.subjects[cls].splice(idx, 1);
+                saveState('subjects');
+                renderSubjectConfigTable();
+                showToast("Subject deleted.", "info");
+            }
+        }
+
+        /* ==========================================================================
+           9. COMPREHENSIVE MARKS MATRIX & AUTO-SAVE
+           ========================================================================== */
+        function renderExamMatrixTable() {
+            const cls = document.getElementById('examClassSelect').value;
+            const term = document.getElementById('examTermSelect').value;
+            const subjects = appData.subjects[cls] || [];
+            const students = appData.students.filter(s => s.cls == cls).sort((a, b) => a.roll - b.roll);
+
+            const header = document.getElementById('examMatrixHeader');
+            const tbody = document.getElementById('examMatrixBody');
+
+            if (subjects.length === 0) {
+                header.innerHTML = `<tr><th class="p-4">No subjects configured for Grade ${cls}. Please set up subjects first.</th></tr>`;
+                tbody.innerHTML = '';
+                return;
+            }
+
+            // Render Multi-Level Header
+            let topHeaderRow = `<tr>
+                <th class="p-2 border border-indigo-800 text-center" rowspan="2">Roll</th>
+                <th class="p-2 border border-indigo-800" rowspan="2">IEMIS ID & Student Name</th>`;
+
+            let subHeaderRow = `<tr>`;
+
+            subjects.forEach(s => {
+                const isLocked = activeUser.role === 'TEACHER' && activeUser.assignedSub && !s.name.toLowerCase().includes(activeUser.assignedSub.toLowerCase());
+                topHeaderRow += `
+                    <th class="p-2 border border-indigo-800 text-center ${isLocked ? 'bg-indigo-950/80 opacity-60' : ''}" colspan="2">
+                        ${s.name} <br>
+                        <span class="text-[10px] font-normal text-indigo-200">(FM: ${s.thFM}+${s.inFM})</span>
+                    </th>`;
+                
+                subHeaderRow += `
+                    <th class="p-1 border border-indigo-800 text-center w-16 bg-indigo-950">TH (${s.thFM})</th>
+                    <th class="p-1 border border-indigo-800 text-center w-16 bg-indigo-900">IN (${s.inFM})</th>`;
+            });
+
+            topHeaderRow += `</tr>`;
+            subHeaderRow += `</tr>`;
+
+            header.innerHTML = topHeaderRow + subHeaderRow;
+
+            // Render Student Rows
+            tbody.innerHTML = '';
+            if (students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${2 + (subjects.length * 2)}" class="p-6 text-center text-gray-500">No students registered in Grade ${cls}.</td></tr>`;
+                return;
+            }
+
+            students.forEach(std => {
+                let row = `<tr class="hover:bg-gray-50">
+                    <td class="p-2 border font-bold text-center">${std.roll}</td>
+                    <td class="p-2 border">
+                        <div class="font-bold text-gray-900">${std.name}</div>
+                        <div class="text-[10px] font-mono text-gray-500">${std.code}</div>
+                    </td>`;
+
+                subjects.forEach(s => {
+                    const markKey = `${cls}_${term}_${std.code}_${s.code}`;
+                    const savedVal = appData.marks[markKey] || { th: '', in: '' };
+
+                    // Teacher Isolation Lock Check
+                    const isLocked = activeUser.role === 'TEACHER' && activeUser.assignedSub && !s.name.toLowerCase().includes(activeUser.assignedSub.toLowerCase());
+
+                    row += `
+                        <td class="p-1 border text-center ${isLocked ? 'bg-gray-100' : ''}">
+                            <input type="number" step="0.5" max="${s.thFM}" min="0" value="${savedVal.th !== undefined ? savedVal.th : ''}" 
+                                ${isLocked ? 'disabled title="Locked: Assigned to another teacher"' : ''} 
+                                oninput="handleMarksInput('${markKey}', 'th', this.value, ${s.thFM})"
+                                class="w-14 text-center py-1 border rounded font-semibold text-xs ${isLocked ? 'bg-gray-200 cursor-not-allowed text-gray-500' : 'focus:ring-2 focus:ring-indigo-500'}">
+                        </td>
+                        <td class="p-1 border text-center ${isLocked ? 'bg-gray-100' : ''}">
+                            <input type="number" step="0.5" max="${s.inFM}" min="0" value="${savedVal.in !== undefined ? savedVal.in : ''}" 
+                                ${isLocked ? 'disabled title="Locked: Assigned to another teacher"' : ''} 
+                                oninput="handleMarksInput('${markKey}', 'in', this.value, ${s.inFM})"
+                                class="w-14 text-center py-1 border rounded font-semibold text-xs ${isLocked ? 'bg-gray-200 cursor-not-allowed text-gray-500' : 'focus:ring-2 focus:ring-emerald-500'}">
+                        </td>`;
+                });
+
+                row += `</tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        let autoSaveTimer = null;
+        function handleMarksInput(key, type, val, maxVal) {
+            const num = parseFloat(val);
+            if (num > maxVal) {
+                showToast(`Value exceeds Full Marks (${maxVal})!`, "danger");
+            }
+
+            if (!appData.marks[key]) appData.marks[key] = { th: '', in: '' };
+            appData.marks[key][type] = val;
+
+            // Debounced Toast Notice & Save
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                saveState('marks');
+                showToast("Exam marks auto-saved", "info");
+            }, 800);
+        }
+
+        function saveExamMarksToState() {
+            saveState('marks');
+            showToast("All matrix marks saved permanently!", "success");
+        }
+
+        /* ==========================================================================
+           10. DAILY ATTENDANCE
+           ========================================================================== */
+        function renderAttendanceTable() {
+            const cls = document.getElementById('attendanceClassSelect').value;
+            const date = document.getElementById('attendanceDatePicker').value;
+            const students = appData.students.filter(s => s.cls == cls).sort((a, b) => a.roll - b.roll);
+
+            const tbody = document.getElementById('attendanceTableBody');
+            tbody.innerHTML = '';
+
+            if (students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-500">No students found in Grade ${cls}.</td></tr>`;
+                return;
+            }
+
+            students.forEach(std => {
+                const attKey = `${cls}_${date}_${std.code}`;
+                const currentStatus = appData.attendance[attKey] || 'Present';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 font-bold text-center">${std.roll}</td>
+                        <td class="p-3 font-mono text-gray-600">${std.code}</td>
+                        <td class="p-3 font-semibold text-gray-900">${std.name}</td>
+                        <td class="p-3 text-center">
+                            <div class="inline-flex items-center space-x-4 bg-gray-100 p-1.5 rounded-lg border">
+                                <label class="inline-flex items-center cursor-pointer text-xs font-bold ${currentStatus === 'Present' ? 'text-emerald-700' : 'text-gray-500'}">
+                                    <input type="radio" name="att_${std.code}" value="Present" ${currentStatus === 'Present' ? 'checked' : ''} onchange="updateAttendanceState('${attKey}', 'Present')" class="mr-1 accent-emerald-600"> Present
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer text-xs font-bold ${currentStatus === 'Absent' ? 'text-red-600' : 'text-gray-500'}">
+                                    <input type="radio" name="att_${std.code}" value="Absent" ${currentStatus === 'Absent' ? 'checked' : ''} onchange="updateAttendanceState('${attKey}', 'Absent')" class="mr-1 accent-red-600"> Absent
+                                </label>
+                            </div>
+                        </td>
+                        <td class="p-3">
+                            <input type="text" placeholder="Optional remark..." class="w-full px-2 py-1 border rounded text-xs">
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateAttendanceState(key, status) {
+            appData.attendance[key] = status;
+            saveState('attendance');
+        }
+
+        function saveAttendanceRecord() {
+            saveState('attendance');
+            showToast("Daily attendance record saved!", "success");
+        }
+
+        /* ==========================================================================
+           11. CDC 2083 GRADE SHEET CALCULATION & REPORT CARD
+           ========================================================================== */
+        function calculateCDCGrade(thMarks, thFM, inMarks, inFM) {
+            const thObt = parseFloat(thMarks) || 0;
+            const inObt = parseFloat(inMarks) || 0;
+            
+            const totalObt = thObt + inObt;
+            const totalFM = thFM + inFM;
+            const percentage = (totalObt / totalFM) * 100;
+
+            let grade = 'NG';
+            let gpa = 0.0;
+
+            if (percentage >= 90) { grade = 'A+'; gpa = 4.0; }
+            else if (percentage >= 80) { grade = 'A'; gpa = 3.6; }
+            else if (percentage >= 70) { grade = 'B+'; gpa = 3.2; }
+            else if (percentage >= 60) { grade = 'B'; gpa = 2.8; }
+            else if (percentage >= 50) { grade = 'C+'; gpa = 2.4; }
+            else if (percentage >= 40) { grade = 'C'; gpa = 2.0; }
+            else if (percentage >= 35) { grade = 'D'; gpa = 1.6; }
+            else { grade = 'NG'; gpa = 0.0; }
+
+            return { grade, gpa, percentage, totalObt };
+        }
+
+        function populateGradeSheetStudentDropdown() {
+            const cls = document.getElementById('gradeSheetClassSelect').value;
+            const students = appData.students.filter(s => s.cls == cls).sort((a, b) => a.roll - b.roll);
+            const select = document.getElementById('gradeSheetStudentSelect');
+            select.innerHTML = '';
+
+            if (students.length === 0) {
+                select.innerHTML = `<option>No students found</option>`;
+                return;
+            }
+
+            students.forEach(std => {
+                select.innerHTML += `<option value="${std.code}">Roll ${std.roll} - ${std.name}</option>`;
+            });
+
+            renderPrintableGradeSheet();
+        }
+
+        function renderPrintableGradeSheet() {
+            const cls = document.getElementById('gradeSheetClassSelect').value;
+            const stdCode = document.getElementById('gradeSheetStudentSelect').value;
+            const std = appData.students.find(s => s.code === stdCode);
+
+            if (!std) return;
+
+            // Fill Institutional Header
+            document.getElementById('gsLogo').src = appData.school.logo || DEFAULT_SCHOOL.logo;
+            document.getElementById('gsSchoolName').innerText = appData.school.name;
+            document.getElementById('gsSchoolAddr').innerText = appData.school.addr;
+            document.getElementById('gsSchoolCode').innerText = appData.school.code;
+
+            // Fill Student Profile
+            document.getElementById('gsStudentName').innerText = std.name;
+            document.getElementById('gsStudentCode').innerText = std.code;
+            document.getElementById('gsClass').innerText = `Grade ${std.cls}`;
+            document.getElementById('gsRoll').innerText = std.roll;
+            document.getElementById('gsDob').innerText = std.dob || '2068-01-01';
+
+            // Fill Table
+            const subjects = appData.subjects[cls] || [];
+            const tbody = document.getElementById('gsTableBody');
+            tbody.innerHTML = '';
+
+            let totalCredit = 0;
+            let weightedGpaSum = 0;
+
+            subjects.forEach((s, idx) => {
+                const markKey = `${cls}_Final Term_${std.code}_${s.code}`;
+                const marks = appData.marks[markKey] || { th: 0, in: 0 };
+                const res = calculateCDCGrade(marks.th, s.thFM, marks.in, s.inFM);
+
+                totalCredit += s.credit;
+                weightedGpaSum += (res.gpa * s.credit);
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 p-1.5 text-center">${idx + 1}</td>
+                        <td class="border border-gray-300 p-1.5 font-bold">${s.code} - ${s.name}</td>
+                        <td class="border border-gray-300 p-1.5 text-center font-semibold">${s.credit}</td>
+                        <td class="border border-gray-300 p-1 text-center">${marks.th || 0}</td>
+                        <td class="border border-gray-300 p-1 text-center">${marks.in || 0}</td>
+                        <td class="border border-gray-300 p-1 text-center font-bold">${res.totalObt}</td>
+                        <td class="border border-gray-300 p-1.5 text-center font-extrabold text-indigo-900">${res.grade}</td>
+                        <td class="border border-gray-300 p-1.5 text-center font-bold">${res.gpa.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            const finalGPA = totalCredit > 0 ? (weightedGpaSum / totalCredit) : 0;
+            document.getElementById('gsTotalCredit').innerText = totalCredit.toFixed(1);
+            document.getElementById('gsCalculatedGPA').innerText = finalGPA.toFixed(2);
+            document.getElementById('gsFinalGradeAvg').innerText = finalGPA >= 3.6 ? 'A+' : (finalGPA >= 3.2 ? 'A' : (finalGPA >= 2.8 ? 'B+' : 'B'));
+            document.getElementById('gsHeadTeacherSig').innerText = appData.school.head;
+        }
+
+        /* ==========================================================================
+           12. REAL EXCEL IMPORT / EXPORT (SheetJS)
+           ========================================================================== */
+        function openExcelSyncModal() {
+            document.getElementById('excelSyncModal').classList.remove('hidden');
+        }
+
+        function closeExcelSyncModal() {
+            document.getElementById('excelSyncModal').classList.add('hidden');
+        }
+
+        function downloadSampleExcel(type) {
+            let data = [];
+            let fileName = "IEMIS_Sample.xlsx";
+
+            if (type === 'students') {
+                fileName = "IEMIS_Students_Import_Template.xlsx";
+                data = [
+                    { "IEMIS Code": "2083101", "Roll No": 1, "Full Name": "Ram Kumar Tamang", "Class": "10", "Gender": "Male", "Guardian Name": "Hari Tamang", "DOB BS": "2068-04-10" },
+                    { "IEMIS Code": "2083102", "Roll No": 2, "Full Name": "Sita Maya Shrestha", "Class": "10", "Gender": "Female", "Guardian Name": "Krishna Shrestha", "DOB BS": "2068-06-15" }
+                ];
+            } else if (type === 'teachers') {
+                fileName = "IEMIS_Teachers_Template.xlsx";
+                data = [
+                    { "Teacher ID": "T-201", "Full Name": "Bikram Adhikari", "Designation": "Teacher", "Phone": "9841112233", "Assigned Subject": "Nepali", "Password": "pass" }
+                ];
+            }
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            XLSX.writeFile(wb, fileName);
+            showToast("Downloaded sample Excel template!", "success");
+        }
+
+        function processUploadedExcel(type) {
+            const fileInput = document.getElementById('excelFileInput');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast("Please select an Excel file first!", "danger");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                if (type === 'students') {
+                    let importedCount = 0;
+                    jsonData.forEach(row => {
+                        if (row["Full Name"] && row["IEMIS Code"]) {
+                            appData.students.push({
+                                code: String(row["IEMIS Code"]),
+                                roll: parseInt(row["Roll No"] || 1),
+                                name: String(row["Full Name"]),
+                                cls: String(row["Class"] || "10"),
+                                gender: String(row["Gender"] || "Male"),
+                                guardian: String(row["Guardian Name"] || ""),
+                                dob: String(row["DOB BS"] || "")
+                            });
+                            importedCount++;
+                        }
+                    });
+
+                    saveState('students');
+                    renderStudentTable();
+                    updateDashboardStatsAndChart();
+                    showToast(`Successfully imported ${importedCount} students!`, "success");
+                    closeExcelSyncModal();
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportMarksToExcel() {
+            const cls = document.getElementById('examClassSelect').value;
+            const term = document.getElementById('examTermSelect').value;
+            const students = appData.students.filter(s => s.cls == cls);
+            const subjects = appData.subjects[cls] || [];
+
+            let exportData = [];
+
+            students.forEach(std => {
+                let rowObj = {
+                    "Roll": std.roll,
+                    "IEMIS Code": std.code,
+                    "Student Name": std.name
+                };
+
+                subjects.forEach(s => {
+                    const markKey = `${cls}_${term}_${std.code}_${s.code}`;
+                    const val = appData.marks[markKey] || { th: 0, in: 0 };
+                    rowObj[`${s.name} (TH)`] = val.th || 0;
+                    rowObj[`${s.name} (IN)`] = val.in || 0;
+                });
+
+                exportData.push(rowObj);
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `Grade_${cls}_Marks`);
+            XLSX.writeFile(wb, `IEMIS_Grade${cls}_${term}_Marks.xlsx`);
+            showToast("Marks exported to Excel!", "success");
+        }
+
+        /* ==========================================================================
+           13. AUTHENTICATION & OTP RECOVERY
+           ========================================================================== */
+        function openPasswordResetModal() {
+            hideUserDropdown();
+            document.getElementById('otpStep1').classList.remove('hidden');
+            document.getElementById('otpStep2').classList.add('hidden');
+            document.getElementById('passwordResetModal').classList.remove('hidden');
+        }
+
+        function closePasswordResetModal() {
+            document.getElementById('passwordResetModal').classList.add('hidden');
+        }
+
+        function sendOtpCode() {
+            const contact = document.getElementById('resetContactInput').value;
+            if (!contact) {
+                showToast("Please enter Mobile or Email!", "danger");
+                return;
+            }
+            document.getElementById('otpStep1').classList.add('hidden');
+            document.getElementById('otpStep2').classList.remove('hidden');
+            showToast("OTP Code Sent: 1234", "info");
+        }
+
+        function verifyOtpAndResetPassword() {
+            const code = document.getElementById('otpCodeInput').value;
+            const newPass = document.getElementById('newPasswordInput').value;
+
+            if (code !== '1234') {
+                showToast("Invalid OTP Code! Use demo code: 1234", "danger");
+                return;
+            }
+
+            if (!newPass) {
+                showToast("Please enter new password!", "danger");
+                return;
+            }
+
+            showToast("Password reset successfully! Please log in again.", "success");
+            closePasswordResetModal();
+        }
+
+        function updateHeaderUserUI() {
+            document.getElementById('headerUserName').innerText = activeUser.name;
+            document.getElementById('userRoleBadge').innerText = activeUser.role === 'ADMIN' ? 'SYSTEM ADMIN' : 'TEACHER ACCOUNT';
+            document.getElementById('userSubText').innerText = activeUser.assignedSub ? `Subject: ${activeUser.assignedSub}` : 'Full Control';
+            document.getElementById('headerUserAvatar').src = `https://placehold.co/100x100/312e81/ffffff?text=${encodeURIComponent(activeUser.name.charAt(0))}`;
+            
+            // Toggle Isolation Badge in Matrix
+            const badge = document.getElementById('teacherIsolationBadge');
+            if (activeUser.role === 'TEACHER') badge.classList.remove('hidden');
+            else badge.classList.add('hidden');
+        }
+
+        function handleLogout() {
+            activeUser = { id: "admin", name: "Administrator", role: "ADMIN", assignedSub: null };
+            updateHeaderUserUI();
+            showToast("Logged out to System Admin session", "info");
+            switchView('dashboardView');
+            hideUserDropdown();
+        }
+
+        function hideUserDropdown() {
+            document.getElementById('userDropdown').classList.add('hidden');
+        }
+
+        /* ==========================================================================
+           14. UTILITY TOAST NOTIFICATIONS
+           ========================================================================== */
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            let bgClass = "bg-gray-800 text-white";
+            if (type === 'success') bgClass = "bg-emerald-600 text-white";
+            if (type === 'danger') bgClass = "bg-red-600 text-white";
+            if (type === 'warning') bgClass = "bg-amber-500 text-white";
+            if (type === 'info') bgClass = "bg-indigo-600 text-white";
+
+            toast.className = `px-4 py-2.5 rounded-xl shadow-lg text-xs font-semibold flex items-center space-x-2 transition-all duration-300 transform translate-y-2 pointer-events-auto ${bgClass}`;
+            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${message}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /* ==========================================================================
+           15. EVENT LISTENERS & APPLICATION INITIALIZATION
+           ========================================================================== */
+        window.onload = function() {
+            // User dropdown toggle
+            document.getElementById('userMenuBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('userDropdown').classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function() {
+                hideUserDropdown();
+            });
+
+            // Mobile sidebar toggle
+            document.getElementById('mobileSidebarToggle').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            });
+
+            // Save default state if empty
+            saveState();
+
+            // Load initial view
+            updateHeaderUserUI();
+            switchView('dashboardView');
+        };
+    </script>
+</body>
+</html>
