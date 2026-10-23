@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IEMIS - integrated Educational Management Information System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- FontAwesome for fallback & extra school icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel Import/Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- QRCodeJS for QR Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- html2pdf for PDF Grade Sheet Download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        iemis: {
+                            main: '#4f46e5',
+                            dark: '#3730a3',
+                            header: '#4338ca',
+                            card: '#4f46e5',
+                            lightBg: '#f3f4f6',
+                            activeNav: '#e0e7ff',
+                            border: '#e5e7eb'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Mukta', 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        /* Suppress external widgets */
+        #netlify-identity-widget, .netlify-badge, [data-netlify-deploy-id], iframe[src*="netlify"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .quick-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .quick-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 bg-slate-100 min-h-screen flex flex-col antialiased">
+
+    <!-- Top Official Header Bar -->
+    <header class="bg-[#4338ca] text-white shadow-md sticky top-0 z-40 no-print">
+        <div class="max-w-[1600px] mx-auto px-4 h-16 flex items-center justify-between">
+            <!-- Left Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-1 rounded">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/9b/Emblem_of_Nepal.svg" alt="Nepal Emblem" class="h-9 w-auto">
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-wider text-amber-300 leading-tight">IEM<span class="text-white">i</span>S</h1>
+                    <p class="text-[10px] text-indigo-100 tracking-tight hidden sm:block">Integrated Educational Management Information System</p>
+                </div>
+            </div>
+
+            <!-- Browser URL Bar Indicator (Replicating exact IEMIS UI) -->
+            <div class="hidden md:flex items-center bg-indigo-900/40 text-indigo-100 text-xs px-3 py-1.5 rounded-full border border-indigo-400/30 w-72">
+                <i data-lucide="globe" class="w-3.5 h-3.5 mr-2 text-indigo-300"></i>
+                <span class="truncate">emis.cehrd.gov.np/home</span>
+                <i data-lucide="lock" class="w-3 h-3 ml-auto text-emerald-400"></i>
+            </div>
+
+            <!-- Right Profile & Account Controls -->
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <p class="text-xs text-indigo-200">Logged in as</p>
+                    <p class="text-sm font-semibold leading-none text-white" id="currentSchoolDisplay">Rasuwa Secondary School</p>
+                    <span class="inline-block text-[10px] bg-emerald-500 text-white px-1.5 py-0.2 rounded font-mono mt-0.5">EMIS ID: 270010002</span>
+                </div>
+                <div class="relative" id="userMenuDropdown">
+                    <button onclick="toggleUserDropdown()" class="flex items-center space-x-2 bg-indigo-700 hover:bg-indigo-600 p-2 rounded-lg transition border border-indigo-500/50">
+                        <i data-lucide="user-check" class="w-5 h-5"></i>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-indigo-200"></i>
+                    </button>
+                    <!-- Dropdown Menu -->
+                    <div id="userDropdownContent" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 z-50 text-slate-700 border border-slate-200">
+                        <div class="px-4 py-2 border-b border-slate-100">
+                            <p class="text-xs text-slate-500">School Code: 270010002</p>
+                            <p class="text-sm font-bold text-indigo-900">Dhunchhe, Rasuwa</p>
+                        </div>
+                        <a href="#" onclick="switchTab('profile')" class="flex items-center px-4 py-2 text-sm hover:bg-indigo-50 text-slate-700"><i data-lucide="building" class="w-4 h-4 mr-2 text-indigo-600"></i> School Profile</a>
+                        <a href="#" onclick="switchTab('settings')" class="flex items-center px-4 py-2 text-sm hover:bg-indigo-50 text-slate-700"><i data-lucide="settings" class="w-4 h-4 mr-2 text-indigo-600"></i> System Settings</a>
+                        <a href="#" onclick="openSyncModal()" class="flex items-center px-4 py-2 text-sm hover:bg-indigo-50 text-slate-700"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2 text-emerald-600"></i> Sync IEMIS 2083 Data</a>
+                        <hr class="my-1">
+                        <button onclick="logoutUser()" class="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i data-lucide="log-out" class="w-4 h-4 mr-2"></i> Logout System</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 md:p-6 flex flex-col md:flex-row gap-6">
+
+        <!-- Left Sidebar Navigation Panel -->
+        <aside class="w-full md:w-64 bg-white rounded-xl shadow-sm border border-slate-200 flex-shrink-0 p-3 no-print h-fit">
+            <nav class="space-y-1" id="sidebarMenu">
+                <button onclick="switchTab('home')" id="nav-home" class="nav-btn active flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 border border-indigo-200">
+                    <div class="flex items-center"><i data-lucide="home" class="w-4 h-4 mr-2.5 text-indigo-600"></i> Home</div>
+                </button>
+
+                <button onclick="switchTab('profile')" id="nav-profile" class="nav-btn flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+                    <div class="flex items-center"><i data-lucide="school" class="w-4 h-4 mr-2.5 text-slate-500"></i> School Profile</div>
+                </button>
+
+                <!-- Collapsible Student Record -->
+                <div>
+                    <button onclick="toggleSubmenu('student-sub')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+                        <div class="flex items-center"><i data-lucide="users" class="w-4 h-4 mr-2.5 text-slate-500"></i> Student Record</div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transform transition-transform duration-200" id="student-sub-arrow"></i>
+                    </button>
+                    <div id="student-sub" class="hidden pl-8 pr-2 py-1 space-y-1">
+                        <a href="#" onclick="switchTab('students')" class="block py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600">Student List & Profiles</a>
+                        <a href="#" onclick="switchTab('admission')" class="block py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600">New Admission (2083)</a>
+                        <a href="#" onclick="switchTab('qr-cards')" class="block py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600">Student ID & QR Cards</a>
+                    </div>
+                </div>
+
+                <!-- Collapsible Manage Exam -->
+                <div>
+                    <button onclick="toggleSubmenu('exam-sub')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+                        <div class="flex items-center"><i data-lucide="file-spreadsheet" class="w-4 h-4 mr-2.5 text-slate-500"></i> Manage Exam</div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transform transition-transform duration-200" id="exam-sub-arrow"></i>
+                    </button>
+                    <div id="exam-sub" class="hidden pl-8 pr-2 py-1 space-y-1">
+                        <a href="#" onclick="switchTab('marks-entry')" class="block py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600">Marks Entry (Theory/Pr)</a>
+                        <a href="#" onclick="switchTab('grade-sheets')" class="block py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600">Grade Sheets (PDF Generator)</a>
+                        <a href="#" onclick="switchTab('cdc-setup')" class="block py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600">CDC Subject & Credits Setup</a>
+                    </div>
+                </div>
+
+                <button onclick="switchTab('teachers')" id="nav-teachers" class="nav-btn flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+                    <div class="flex items-center"><i data-lucide="user-cog" class="w-4 h-4 mr-2.5 text-slate-500"></i> Teacher | Staff</div>
+                </button>
+
+                <button onclick="switchTab('attendance')" id="nav-attendance" class="nav-btn flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+                    <div class="flex items-center"><i data-lucide="qr-code" class="w-4 h-4 mr-2.5 text-slate-500"></i> QR Attendance Terminal</div>
+                </button>
+
+                <button onclick="switchTab('eie')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="heart-handshake" class="w-4 h-4 mr-2.5 text-slate-500"></i> EIE</div>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                </button>
+
+                <button onclick="switchTab('pmt')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="lightbulb" class="w-4 h-4 mr-2.5 text-slate-500"></i> PMT</div>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                </button>
+
+                <button onclick="switchTab('disability')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="accessibility" class="w-4 h-4 mr-2.5 text-slate-500"></i> Disability DMS</div>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                </button>
+
+                <button onclick="switchTab('smc')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="building-2" class="w-4 h-4 mr-2.5 text-slate-500"></i> SMC | PTA</div>
+                </button>
+
+                <button onclick="switchTab('inventory')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="box" class="w-4 h-4 mr-2.5 text-slate-500"></i> Infras. Inventory</div>
+                </button>
+
+                <button onclick="switchTab('real')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="line-chart" class="w-4 h-4 mr-2.5 text-slate-500"></i> ReAL Reporting</div>
+                </button>
+
+                <button onclick="switchTab('requests')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="file-text" class="w-4 h-4 mr-2.5 text-slate-500"></i> Request Form</div>
+                </button>
+
+                <button onclick="switchTab('oosc')" class="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50">
+                    <div class="flex items-center"><i data-lucide="user-minus" class="w-4 h-4 mr-2.5 text-slate-500"></i> OOSC Form</div>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Right Main Workspace Content Area -->
+        <main class="flex-1 space-y-6 overflow-hidden">
+
+            <!-- TAB 1: HOME (Hero Banner + Quick Menu Grid + Official Notices) -->
+            <div id="tab-home" class="tab-content space-y-6">
+                
+                <!-- Hero Banner Header (Matching exact visual layout from image) -->
+                <div class="bg-[#4338ca] text-white p-6 sm:p-8 rounded-2xl shadow-md relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                    <div class="space-y-2 z-10 max-w-2xl">
+                        <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome to IEMIS, Rasuwa Secondary School !</h2>
+                        <div class="text-indigo-100 text-xs sm:text-sm font-light space-y-0.5 opacity-90">
+                            <p>Government of Nepal</p>
+                            <p>Ministry of Education, Science and Technology</p>
+                            <p class="font-medium text-amber-200">Center for Education and Human Resource Development (CEHRD)</p>
+                        </div>
+                    </div>
+
+                    <!-- Right Statistics Badges (exact match of glass cards in screenshot) -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto z-10">
+                        <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 text-center flex flex-col items-center justify-center min-w-[100px]">
+                            <div class="flex items-center space-x-1 text-emerald-300">
+                                <i data-lucide="map" class="w-5 h-5"></i>
+                                <span class="text-2xl font-bold">7</span>
+                            </div>
+                            <span class="text-[11px] text-indigo-100 uppercase tracking-wider font-semibold mt-0.5">Provinces</span>
+                        </div>
+
+                        <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 text-center flex flex-col items-center justify-center min-w-[100px]">
+                            <div class="flex items-center space-x-1 text-rose-300">
+                                <i data-lucide="map-pin" class="w-5 h-5"></i>
+                                <span class="text-2xl font-bold">77</span>
+                            </div>
+                            <span class="text-[11px] text-indigo-100 uppercase tracking-wider font-semibold mt-0.5">Districts</span>
+                        </div>
+
+                        <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 text-center flex flex-col items-center justify-center min-w-[100px]">
+                            <div class="flex items-center space-x-1 text-amber-300">
+                                <i data-lucide="building" class="w-5 h-5"></i>
+                                <span class="text-2xl font-bold">753</span>
+                            </div>
+                            <span class="text-[11px] text-indigo-100 uppercase tracking-wider font-semibold mt-0.5">Municipalities</span>
+                        </div>
+
+                        <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 text-center flex flex-col items-center justify-center min-w-[110px]">
+                            <span class="text-[10px] text-indigo-200 uppercase tracking-wider font-medium">Academic Year</span>
+                            <span class="text-2xl font-extrabold text-white mt-0.5">2083</span>
+                            <span class="text-[9px] text-emerald-300 bg-emerald-900/50 px-1.5 rounded">Active Session</span>
+                        </div>
+                    </div>
+                    <!-- Background subtle decorative circle -->
+                    <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                </div>
+
+                <!-- Lower Layout Grid: Quick Menu (Left 2/3) + Notices (Right 1/3) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- Center Quick Menu Container -->
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                                Quick menu
+                            </h3>
+                            <span class="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-1 rounded-full border border-indigo-100">CEHRD Portal Shortcuts</span>
+                        </div>
+
+                        <!-- 10 Quick Menu Icon Cards (Exact match of screenshot layout) -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                            
+                            <!-- 1. Dashboard -->
+                            <button onclick="switchTab('home')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="zap" class="w-6 h-6 fill-amber-500 text-amber-600"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Dashboard</span>
+                            </button>
+
+                            <!-- 2. School Profile -->
+                            <button onclick="switchTab('profile')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="school" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">School Profile</span>
+                            </button>
+
+                            <!-- 3. School Mapping -->
+                            <button onclick="switchTab('profile')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="map-pinned" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">School Mapping</span>
+                            </button>
+
+                            <!-- 4. Student Information -->
+                            <button onclick="switchTab('students')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Student Information</span>
+                            </button>
+
+                            <!-- 5. Manage Exam -->
+                            <button onclick="switchTab('marks-entry')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-teal-100 text-teal-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Manage Exam</span>
+                            </button>
+
+                            <!-- 6. Teacher & Staff Information -->
+                            <button onclick="switchTab('teachers')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="users" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Teacher & Staff Information</span>
+                            </button>
+
+                            <!-- 7. Salary Entry Request -->
+                            <button onclick="switchTab('requests')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="banknote" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Salary Entry Request</span>
+                            </button>
+
+                            <!-- 8. Day Meal Request -->
+                            <button onclick="switchTab('requests')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="utensils" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Day Meal Request</span>
+                            </button>
+
+                            <!-- 9. EIE PMT List -->
+                            <button onclick="switchTab('pmt')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="book-open" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">EIE PMT List</span>
+                            </button>
+
+                            <!-- 10. Disability DMS -->
+                            <button onclick="switchTab('disability')" class="quick-card bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-center text-center group cursor-pointer">
+                                <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="accessibility" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700 group-hover:text-indigo-700">Disability DMS</span>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <!-- Right Important Notices Feed Panel (Exact layout match) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                        <!-- Notice Banner Header -->
+                        <div class="bg-[#4338ca] text-white px-4 py-3 flex items-center space-x-2">
+                            <i data-lucide="megaphone" class="w-5 h-5 text-amber-300"></i>
+                            <h3 class="font-bold text-sm tracking-wide">Important Notices & Updates</h3>
+                        </div>
+
+                        <!-- Scrollable Feed -->
+                        <div class="p-4 space-y-4 overflow-y-auto max-h-[420px] custom-scrollbar flex-1">
+                            
+                            <!-- Notice Item 1 -->
+                            <div class="p-3 rounded-lg bg-indigo-50/40 border border-indigo-100 space-y-2 hover:bg-indigo-50 transition">
+                                <a href="#" class="text-xs font-bold text-slate-800 hover:text-indigo-700 leading-snug block">
+                                    छात्रवृत्ति वितरण तथा विद्यार्थी सत्यापन सम्बन्धमा संस्थागत विवरण प्रविष्टि गराउने सम्बन्धी अत्यन्त जरुरी सूचना
+                                </a>
+                                <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                    <span>Published By: <strong class="text-slate-700">Central Level</strong></span>
+                                    <span>Date: <strong>2083-06-06</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Notice Item 2 -->
+                            <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 hover:bg-indigo-50/50 transition">
+                                <a href="#" class="text-xs font-bold text-slate-800 hover:text-indigo-700 leading-snug block">
+                                    सामुदायिक विद्यालयका विद्यार्थी सत्यापन गर्ने सम्बन्धी सूचना
+                                </a>
+                                <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                    <span>Published By: <strong class="text-slate-700">Central Level</strong></span>
+                                    <span>Date: <strong>2083-06-06</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Notice Item 3 -->
+                            <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 hover:bg-indigo-50/50 transition">
+                                <a href="#" class="text-xs font-bold text-slate-800 hover:text-indigo-700 leading-snug block">
+                                    छात्रवृत्ति वितरण तथा विद्यार्थी सत्यापन सम्बन्धमा संस्थागत विवरण...
+                                </a>
+                                <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                    <span>Published By: <strong class="text-slate-700">Central Level</strong></span>
+                                    <span>Date: <strong>2083-06-02</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Notice Item 4 -->
+                            <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 hover:bg-indigo-50/50 transition">
+                                <a href="#" class="text-xs font-bold text-slate-800 hover:text-indigo-700 leading-snug block">
+                                    सामुदायिक विद्यालयका विद्यार्थी सत्यापन गर्ने सम्बन्धी सूचना
+                                </a>
+                                <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                    <span>Published By: <strong class="text-slate-700">Central Level</strong></span>
+                                    <span>Date: <strong>2083-05-28</strong></span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TAB 2: STUDENT MANAGEMENT & ADMISSION -->
+            <div id="tab-students" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Student Directory (Academic Year 2083)</h2>
+                            <p class="text-xs text-slate-500">Manage official government IEMIS registered students</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="switchTab('admission')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2">
+                                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                                <span>New Student Registration</span>
+                            </button>
+                            <button onclick="exportToExcel('studentTable')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold flex items-center space-x-1">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>Export Excel</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Controls -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Select Class</label>
+                            <select id="filterClass" onchange="renderStudents()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-indigo-500">
+                                <option value="All">All Classes (1 - 10)</option>
+                                <option value="10">Class 10</option>
+                                <option value="9">Class 9</option>
+                                <option value="8">Class 8</option>
+                                <option value="7">Class 7</option>
+                                <option value="6">Class 6</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
+                            <select id="filterGender" onchange="renderStudents()" class="w-full text-sm border-slate-300 rounded-lg p-2 border">
+                                <option value="All">All Genders</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Search Student Name / Reg No</label>
+                            <input type="text" id="searchStudent" onkeyup="renderStudents()" placeholder="Type student name or ID..." class="w-full text-sm border-slate-300 rounded-lg p-2 border">
+                        </div>
+                    </div>
+
+                    <!-- Student Table -->
+                    <div class="overflow-x-auto rounded-lg border border-slate-200">
+                        <table class="w-full text-left text-sm" id="studentTable">
+                            <thead class="bg-slate-100 text-slate-700 text-xs uppercase font-semibold">
+                                <tr>
+                                    <th class="p-3">EMIS ID</th>
+                                    <th class="p-3">Student Name</th>
+                                    <th class="p-3">Class</th>
+                                    <th class="p-3">Roll No</th>
+                                    <th class="p-3">Birth Reg. No</th>
+                                    <th class="p-3">Guardian Name</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentTableBody" class="divide-y divide-slate-200">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: NEW ADMISSION FORM -->
+            <div id="tab-admission" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3 flex items-center">
+                        <i data-lucide="user-plus" class="w-5 h-5 mr-2 text-indigo-600"></i> New Student Admission Entry (IEMIS 2083)
+                    </h2>
+                    <form id="admissionForm" onsubmit="handleNewAdmission(event)" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name (English) *</label>
+                                <input type="text" id="admName" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">पूरा नाम (नेपालीमा) *</label>
+                                <input type="text" id="admNameNp" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Birth Registration No. *</label>
+                                <input type="text" id="admBirthReg" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-mono" placeholder="2070010100123">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Class Seeking Admission *</label>
+                                <select id="admClass" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                                    <option value="10">Class 10</option>
+                                    <option value="9">Class 9</option>
+                                    <option value="8">Class 8</option>
+                                    <option value="7">Class 7</option>
+                                    <option value="6">Class 6</option>
+                                    <option value="5">Class 5</option>
+                                    <option value="1">Class 1</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Roll Number *</label>
+                                <input type="number" id="admRoll" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Gender *</label>
+                                <select id="admGender" required class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Father's Name</label>
+                                <input type="text" id="admFather" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Mother's Name</label>
+                                <input type="text" id="admMother" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Contact Phone No.</label>
+                                <input type="tel" id="admPhone" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-mono" placeholder="98XXXXXXXX">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+                            <button type="button" onclick="switchTab('students')" class="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100">Cancel</button>
+                            <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                                <span>Save Student to IEMIS</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 4: QR CODE CARDS & TERMINAL -->
+            <div id="tab-qr-cards" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Student Identity & QR Cards</h2>
+                            <p class="text-xs text-slate-500">Generate printable government student ID cards with embedded IEMIS QR code</p>
+                        </div>
+                        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2">
+                            <i data-lucide="printer" class="w-4 h-4"></i>
+                            <span>Print All QR Cards</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="qrCardGrid">
+                        <!-- Dynamically populated ID cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: QR ATTENDANCE SCANNER TERMINAL -->
+            <div id="tab-attendance" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                                <i data-lucide="qr-code" class="w-6 h-6 mr-2 text-indigo-600"></i> Smart QR Attendance Terminal
+                            </h2>
+                            <p class="text-xs text-slate-500">Scan student QR code to automatically mark daily presence and trigger instant SMS alerts</p>
+                        </div>
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping mr-2"></span> Terminal Active
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Manual Scanner / Simulator Box -->
+                        <div class="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-indigo-300 text-center space-y-4">
+                            <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto text-indigo-600">
+                                <i data-lucide="scan" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-800">Scan Student QR Code or Enter ID</h3>
+                            <div class="flex gap-2 max-w-xs mx-auto">
+                                <input type="text" id="scanInput" placeholder="Enter EMIS ID (e.g. STU-1001)" class="w-full text-sm p-2.5 border border-slate-300 rounded-lg text-center font-mono uppercase">
+                                <button onclick="processQRScan()" class="bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700">Submit</button>
+                            </div>
+                            <p class="text-xs text-slate-500">Simulate scanner input by clicking any barcode button from the ID tab.</p>
+                        </div>
+
+                        <!-- Scan Result Status Box -->
+                        <div id="scanResultBox" class="bg-indigo-950 text-white p-6 rounded-2xl flex flex-col justify-between">
+                            <div>
+                                <span class="text-xs text-indigo-300 uppercase font-mono tracking-wider">Scanner Log Feed</span>
+                                <h4 class="text-lg font-bold text-white mt-1" id="scanName">Waiting for scan...</h4>
+                                <p class="text-xs text-indigo-200 mt-1" id="scanDetails">Place card near camera sensor.</p>
+                            </div>
+                            <div class="mt-6 pt-4 border-t border-indigo-800/80 flex items-center justify-between text-xs text-indigo-300 font-mono">
+                                <span>Status: <strong id="scanStatus" class="text-amber-400">IDLE</strong></span>
+                                <span id="scanTime">--:--:--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Log Table -->
+                    <div class="space-y-3">
+                        <h3 class="text-md font-bold text-slate-800">Today's Attendance Log (2083-06-06)</h3>
+                        <div class="overflow-x-auto rounded-lg border border-slate-200">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-100 text-slate-700 text-xs uppercase font-semibold">
+                                    <tr>
+                                        <th class="p-3">Student Name</th>
+                                        <th class="p-3">EMIS ID</th>
+                                        <th class="p-3">Class</th>
+                                        <th class="p-3">Scan Time</th>
+                                        <th class="p-3">Status</th>
+                                        <th class="p-3">SMS Notification</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceLogBody" class="divide-y divide-slate-200">
+                                    <!-- Dynamic attendance logs -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 6: MARKS ENTRY & CDC CDC GRADING SCHEME -->
+            <div id="tab-marks-entry" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">CDC Marks Ledger & Entry (2083 Evaluation)</h2>
+                            <p class="text-xs text-slate-500">Government CDC Standard: Class 9-10 (75 Theory / 25 Practical Split)</p>
+                        </div>
+                        <button onclick="saveAllMarks()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center space-x-2">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span>Save Marks Ledger</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Select Class</label>
+                            <select id="marksClass" onchange="renderMarksLedger()" class="w-full text-sm border-slate-300 rounded-lg p-2 border">
+                                <option value="10">Class 10</option>
+                                <option value="9">Class 9</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Select Subject</label>
+                            <select id="marksSubject" onchange="renderMarksLedger()" class="w-full text-sm border-slate-300 rounded-lg p-2 border">
+                                <option value="Compulsory English">Compulsory English (TH:75, PR:25)</option>
+                                <option value="Compulsory Nepali">Compulsory Nepali (TH:75, PR:25)</option>
+                                <option value="Compulsory Mathematics">Compulsory Mathematics (TH:75, PR:25)</option>
+                                <option value="Compulsory Science">Compulsory Science (TH:75, PR:25)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Exam Type</label>
+                            <select class="w-full text-sm border-slate-300 rounded-lg p-2 border">
+                                <option>Annual Final Examination 2083</option>
+                                <option>Terminal Exam</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Marks Entry Table -->
+                    <div class="overflow-x-auto rounded-lg border border-slate-200">
+                        <table class="w-full text-left text-sm" id="marksTable">
+                            <thead class="bg-indigo-900 text-white text-xs uppercase font-semibold">
+                                <tr>
+                                    <th class="p-3">Roll</th>
+                                    <th class="p-3">Student Name</th>
+                                    <th class="p-3 text-center">Theory Marks (Max 75)</th>
+                                    <th class="p-3 text-center">Practical Marks (Max 25)</th>
+                                    <th class="p-3 text-center">Total Grade</th>
+                                    <th class="p-3 text-center">Grade Point (GPA)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="marksLedgerBody" class="divide-y divide-slate-200">
+                                <!-- Dynamically generated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 7: GRADE SHEET PDF GENERATOR -->
+            <div id="tab-grade-sheets" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-4 no-print">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Official CDC Academic Grade Sheet Generator</h2>
+                            <p class="text-xs text-slate-500">Generates government formatted Grade Sheet in accordance with CEHRD Guidelines</p>
+                        </div>
+                        <div class="flex space-x-3">
+                            <select id="selectGradeStudent" onchange="generateGradeSheet()" class="text-sm border-slate-300 rounded-lg p-2 border">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <button onclick="downloadGradePDF()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center space-x-2">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>Download Official PDF</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Official Formatted Grade Sheet Box (Target for PDF download) -->
+                    <div id="gradeSheetPrintable" class="bg-white p-8 border-2 border-slate-800 rounded-lg max-w-4xl mx-auto space-y-6 text-slate-900 font-serif">
+                        <!-- Government Header -->
+                        <div class="text-center border-b-2 border-slate-800 pb-4 space-y-1">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9b/Emblem_of_Nepal.svg" alt="Nepal Seal" class="h-16 w-auto mx-auto mb-2">
+                            <h3 class="text-base font-bold uppercase tracking-wider">Government of Nepal</h3>
+                            <h4 class="text-sm font-semibold">Ministry of Education, Science and Technology</h4>
+                            <p class="text-xs">Center for Education and Human Resource Development (CEHRD)</p>
+                            <h2 class="text-xl font-extrabold text-indigo-950 underline mt-2">GRADE SHEET</h2>
+                            <p class="text-xs font-mono">ACADEMIC YEAR: 2083 BS</p>
+                        </div>
+
+                        <!-- Student Details Grid -->
+                        <div class="grid grid-cols-2 text-xs space-y-1 font-sans">
+                            <div><strong>Student Name:</strong> <span id="gsName" class="uppercase">--</span></div>
+                            <div><strong>EMIS ID:</strong> <span id="gsEmis" class="font-mono">--</span></div>
+                            <div><strong>School Name:</strong> <span>RASUWA SECONDARY SCHOOL (270010002)</span></div>
+                            <div><strong>Date of Birth:</strong> <span id="gsDob">2068-04-12 BS</span></div>
+                            <div><strong>Class:</strong> <span id="gsClass">10</span></div>
+                            <div><strong>Roll Number:</strong> <span id="gsRoll">--</span></div>
+                        </div>
+
+                        <!-- CDC Subject Marks Ledger Table -->
+                        <table class="w-full text-xs border-collapse border border-slate-800 text-center font-sans">
+                            <thead>
+                                <tr class="bg-slate-100 border-b border-slate-800 font-bold">
+                                    <th class="border border-slate-800 p-2 text-left">Subject Code & Title</th>
+                                    <th class="border border-slate-800 p-2">Credit Hour</th>
+                                    <th class="border border-slate-800 p-2">Theory Grade</th>
+                                    <th class="border border-slate-800 p-2">Practical Grade</th>
+                                    <th class="border border-slate-800 p-2">Final Grade</th>
+                                    <th class="border border-slate-800 p-2">Grade Point (GP)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gsSubjectRows">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-bold bg-slate-50 border-t border-slate-800">
+                                    <td class="border border-slate-800 p-2 text-right" colspan="5">GRADE POINT AVERAGE (GPA):</td>
+                                    <td class="border border-slate-800 p-2 text-indigo-900 text-sm font-mono" id="gsGpa">--</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- Verification & Signatures -->
+                        <div class="pt-12 flex justify-between text-xs font-sans text-slate-800">
+                            <div class="text-center">
+                                <p class="border-t border-slate-400 pt-1 w-32 font-semibold">Prepared By</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="border-t border-slate-400 pt-1 w-32 font-semibold">Checked By</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="border-t border-slate-400 pt-1 w-40 font-bold">Headmaster / Stamp</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 8: TEACHER & STAFF MANAGEMENT -->
+            <div id="tab-teachers" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Teacher & Staff Roster</h2>
+                            <p class="text-xs text-slate-500">CEHRD Teacher Records & Subject Assignments</p>
+                        </div>
+                        <button onclick="alert('New Teacher Registration Form Opened')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-1">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Add New Teacher</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="teacherGrid">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 9: SCHOOL PROFILE -->
+            <div id="tab-profile" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                    <h2 class="text-xl font-bold text-slate-800 border-b border-slate-200 pb-3">Official School Institutional Profile</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <div class="space-y-3">
+                            <div><span class="text-slate-500 block text-xs">School Name:</span> <strong>Rasuwa Secondary School</strong></div>
+                            <div><span class="text-slate-500 block text-xs">IEMIS Code:</span> <strong class="font-mono text-indigo-600">270010002</strong></div>
+                            <div><span class="text-slate-500 block text-xs">Province / District / Local Level:</span> <strong>Bagmati / Rasuwa / Gosaikunda Municipality-1</strong></div>
+                            <div><span class="text-slate-500 block text-xs">School Type:</span> <strong>Community / Public School</strong></div>
+                        </div>
+                        <div class="space-y-3">
+                            <div><span class="text-slate-500 block text-xs">Headmaster Name:</span> <strong>Ram Bahadur Thapa</strong></div>
+                            <div><span class="text-slate-500 block text-xs">Contact Number:</span> <strong class="font-mono">9851012345</strong></div>
+                            <div><span class="text-slate-500 block text-xs">Official Email:</span> <strong>rasuwa.sec@gmail.com</strong></div>
+                            <div><span class="text-slate-500 block text-xs">Approved Class Level:</span> <strong>Grade 1 to Grade 12</strong></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 10: OTHER MODULES PLACEHOLDER (EIE, PMT, Disability, Inventory) -->
+            <div id="tab-generic" class="tab-content hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center space-y-4">
+                    <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto text-indigo-600">
+                        <i data-lucide="layers" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800" id="genericModuleTitle">Module Active</h2>
+                    <p class="text-sm text-slate-500 max-w-md mx-auto">This official CEHRD module is linked with central server 2083. Data sync and local caching are operational.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Data Sync Modal -->
+    <div id="syncModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 flex items-center">
+                    <i data-lucide="refresh-cw" class="w-5 h-5 mr-2 text-indigo-600"></i> Sync Data with CEHRD IEMIS
+                </h3>
+                <button onclick="closeSyncModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <p class="text-xs text-slate-600">Select IEMIS 2083 Excel File to upload or synchronize local offline school data.</p>
+            <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-indigo-500 cursor-pointer">
+                <i data-lucide="file-up" class="w-8 h-8 mx-auto text-slate-400 mb-2"></i>
+                <input type="file" id="excelUpload" onchange="handleExcelUpload(event)" class="hidden">
+                <label for="excelUpload" class="text-xs text-indigo-600 font-bold cursor-pointer">Click to Upload Excel File</label>
+                <p class="text-[10px] text-slate-400 mt-1">Supports official .xlsx IEMIS export format</p>
+            </div>
+            <button onclick="closeSyncModal()" class="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-indigo-700">Done Syncing</button>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Global Initial Mock Data
+        let students = [
+            { id: "STU-1001", name: "Aarav Sharma", nameNp: "आरभ शर्मा", class: "10", roll: 1, birthReg: "206801050012", gender: "Male", phone: "9841234567", guardian: "Ramesh Sharma" },
+            { id: "STU-1002", name: "Sita Tamang", nameNp: "सीता तामाङ", class: "10", roll: 2, birthReg: "206803120045", gender: "Female", phone: "9812345678", guardian: "Pasang Tamang" },
+            { id: "STU-1003", name: "Bikash Shrestha", nameNp: "विकास श्रेष्ठ", class: "9", roll: 1, birthReg: "206902200088", gender: "Male", phone: "9860112233", guardian: "Hari Shrestha" },
+            { id: "STU-1004", name: "Pooja Gurung", nameNp: "पूजा गुरुङ", class: "9", roll: 2, birthReg: "206905150099", gender: "Female", phone: "9808998877", guardian: "Karna Gurung" }
+        ];
+
+        let marksLedger = {
+            "STU-1001": { th: 68, pr: 22 },
+            "STU-1002": { th: 55, pr: 20 },
+            "STU-1003": { th: 60, pr: 24 },
+            "STU-1004": { th: 72, pr: 23 }
+        };
+
+        let teachers = [
+            { name: "Ram Bahadur Thapa", title: "Headmaster / Senior Math Teacher", subject: "Mathematics", phone: "9851012345", code: "T-801" },
+            { name: "Sunita Karki", title: "Secondary English Teacher", subject: "English", phone: "9841098765", code: "T-802" },
+            { name: "Devendra Ghimire", title: "Science Teacher", subject: "Science & Tech", phone: "9860001122", code: "T-803" }
+        ];
+
+        let attendanceLogs = [];
+
+        // App Initializer
+        window.onload = function() {
+            lucide.createIcons();
+            renderStudents();
+            renderQRCards();
+            renderTeachers();
+            renderMarksLedger();
+            populateGradeSheetDropdown();
+        };
+
+        // Navigation Controller
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            
+            // Remove active classes from navigation buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-50', 'text-indigo-700', 'border', 'border-indigo-200');
+                btn.classList.add('text-slate-600');
+            });
+
+            const activeTab = document.getElementById(`tab-${tabId}`);
+            if (activeTab) {
+                activeTab.classList.remove('hidden');
+            } else {
+                // Fallback for generic tabs
+                document.getElementById('tab-generic').classList.remove('hidden');
+                document.getElementById('genericModuleTitle').innerText = tabId.toUpperCase() + " Module";
+            }
+
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-indigo-50', 'text-indigo-700', 'border', 'border-indigo-200');
+            }
+        }
+
+        function toggleSubmenu(id) {
+            const menu = document.getElementById(id);
+            const arrow = document.getElementById(`${id}-arrow`);
+            menu.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-90');
+        }
+
+        function toggleUserDropdown() {
+            document.getElementById('userDropdownContent').classList.toggle('hidden');
+        }
+
+        // Render Student Table
+        function renderStudents() {
+            const filterClass = document.getElementById('filterClass').value;
+            const filterGender = document.getElementById('filterGender').value;
+            const search = document.getElementById('searchStudent').value.toLowerCase();
+
+            const tbody = document.getElementById('studentTableBody');
+            tbody.innerHTML = '';
+
+            const filtered = students.filter(s => {
+                const matchClass = (filterClass === 'All' || s.class === filterClass);
+                const matchGender = (filterGender === 'All' || s.gender === filterGender);
+                const matchSearch = s.name.toLowerCase().includes(search) || s.id.toLowerCase().includes(search);
+                return matchClass && matchGender && matchSearch;
+            });
+
+            filtered.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 text-xs";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-bold text-indigo-700">${s.id}</td>
+                    <td class="p-3 font-bold text-slate-800">${s.name} <span class="block text-[10px] text-slate-500 font-normal">${s.nameNp}</span></td>
+                    <td class="p-3"><span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-bold">${s.class}</span></td>
+                    <td class="p-3 font-mono">${s.roll}</td>
+                    <td class="p-3 font-mono text-slate-600">${s.birthReg}</td>
+                    <td class="p-3 text-slate-700">${s.guardian}</td>
+                    <td class="p-3 text-center space-x-2">
+                        <button onclick="quickScan('${s.id}')" class="bg-indigo-600 text-white px-2 py-1 rounded text-[10px] hover:bg-indigo-700">QR Scan</button>
+                        <button onclick="deleteStudent('${s.id}')" class="text-rose-600 hover:text-rose-800"><i data-lucide="trash-2" class="w-4 h-4 inline"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        // Handle Admission Form Submission
+        function handleNewAdmission(e) {
+            e.preventDefault();
+            const newStu = {
+                id: "STU-" + (1000 + students.length + 1),
+                name: document.getElementById('admName').value,
+                nameNp: document.getElementById('admNameNp').value,
+                birthReg: document.getElementById('admBirthReg').value,
+                class: document.getElementById('admClass').value,
+                roll: parseInt(document.getElementById('admRoll').value),
+                gender: document.getElementById('admGender').value,
+                phone: document.getElementById('admPhone').value || "9800000000",
+                guardian: document.getElementById('admFather').value || "Guardian"
+            };
+
+            students.push(newStu);
+            marksLedger[newStu.id] = { th: 50, pr: 20 };
+            
+            alert('Student Registered Successfully in IEMIS Database!');
+            renderStudents();
+            renderQRCards();
+            populateGradeSheetDropdown();
+            switchTab('students');
+        }
+
+        function deleteStudent(id) {
+            if (confirm(`Are you sure you want to delete student ${id}?`)) {
+                students = students.filter(s => s.id !== id);
+                renderStudents();
+                renderQRCards();
+            }
+        }
+
+        // Render Student ID & QR Cards
+        function renderQRCards() {
+            const container = document.getElementById('qrCardGrid');
+            container.innerHTML = '';
+
+            students.forEach(s => {
+                const card = document.createElement('div');
+                card.className = "bg-white border-2 border-indigo-900 rounded-xl p-4 shadow-md relative overflow-hidden flex flex-col justify-between";
+                card.innerHTML = `
+                    <div class="text-center border-b border-indigo-200 pb-2 mb-2">
+                        <span class="text-[10px] font-bold text-indigo-900 tracking-wider uppercase block">Rasuwa Secondary School</span>
+                        <span class="text-[9px] text-slate-500">Government Student Identity Card</span>
+                    </div>
+                    <div class="flex gap-3 items-center">
+                        <div class="w-16 h-16 bg-slate-200 rounded-lg flex-shrink-0 flex items-center justify-center font-bold text-slate-400 text-xs">
+                            PHOTO
+                        </div>
+                        <div class="text-xs space-y-0.5">
+                            <h4 class="font-bold text-slate-800">${s.name}</h4>
+                            <p class="text-[11px] text-indigo-700 font-mono font-bold">ID: ${s.id}</p>
+                            <p class="text-[10px] text-slate-600">Class: <strong>${s.class}</strong> | Roll: <strong>${s.roll}</strong></p>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <div id="qrcode-${s.id}" class="w-12 h-12"></div>
+                        <button onclick="quickScan('${s.id}')" class="text-[10px] bg-slate-800 text-white px-2 py-1 rounded hover:bg-black">Simulate Scan</button>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                // Generate QR Code inside wrapper
+                setTimeout(() => {
+                    new QRCode(document.getElementById(`qrcode-${s.id}`), {
+                        text: s.id,
+                        width: 48,
+                        height: 48
+                    });
+                }, 100);
+            });
+        }
+
+        // QR Terminal Scanner Simulator
+        function quickScan(id) {
+            switchTab('attendance');
+            document.getElementById('scanInput').value = id;
+            processQRScan();
+        }
+
+        function processQRScan() {
+            const input = document.getElementById('scanInput').value.trim().toUpperCase();
+            const student = students.find(s => s.id === input);
+
+            const resultBox = document.getElementById('scanResultBox');
+            const scanName = document.getElementById('scanName');
+            const scanDetails = document.getElementById('scanDetails');
+            const scanStatus = document.getElementById('scanStatus');
+            const scanTime = document.getElementById('scanTime');
+
+            const now = new Date().toLocaleTimeString();
+            scanTime.innerText = now;
+
+            if (student) {
+                scanName.innerText = student.name + " (" + student.id + ")";
+                scanDetails.innerText = `Class: ${student.class} | Guardian: ${student.guardian} (${student.phone})`;
+                scanStatus.innerText = "VERIFIED / PRESENT";
+                scanStatus.className = "text-emerald-400 font-bold";
+
+                // Add to log
+                attendanceLogs.unshift({
+                    name: student.name,
+                    id: student.id,
+                    class: student.class,
+                    time: now,
+                    status: "Present",
+                    sms: `Alert Sent to ${student.phone}`
+                });
+
+                renderAttendanceLog();
+            } else {
+                scanName.innerText = "INVALID STUDENT CODE";
+                scanDetails.innerText = "No student record found for code: " + input;
+                scanStatus.innerText = "SCAN ERROR";
+                scanStatus.className = "text-rose-400 font-bold";
+            }
+        }
+
+        function renderAttendanceLog() {
+            const tbody = document.getElementById('attendanceLogBody');
+            tbody.innerHTML = '';
+            attendanceLogs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 text-xs";
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-slate-800">${log.name}</td>
+                    <td class="p-3 font-mono">${log.id}</td>
+                    <td class="p-3">Class ${log.class}</td>
+                    <td class="p-3 font-mono">${log.time}</td>
+                    <td class="p-3"><span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">${log.status}</span></td>
+                    <td class="p-3 font-mono text-[11px] text-slate-500">${log.sms}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Marks Entry & CDC Grading Calculation
+        function renderMarksLedger() {
+            const cls = document.getElementById('marksClass').value;
+            const tbody = document.getElementById('marksLedgerBody');
+            tbody.innerHTML = '';
+
+            const classStudents = students.filter(s => s.class === cls);
+
+            classStudents.forEach(s => {
+                const marks = marksLedger[s.id] || { th: 0, pr: 0 };
+                const total = marks.th + marks.pr;
+                const { grade, gp } = calculateCDCGrade(total);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 text-xs";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-bold">${s.roll}</td>
+                    <td class="p-3 font-bold text-slate-800">${s.name}</td>
+                    <td class="p-3 text-center">
+                        <input type="number" max="75" min="0" value="${marks.th}" onchange="updateMarks('${s.id}', 'th', this.value)" class="w-16 p-1 text-center border border-slate-300 rounded font-mono font-bold">
+                    </td>
+                    <td class="p-3 text-center">
+                        <input type="number" max="25" min="0" value="${marks.pr}" onchange="updateMarks('${s.id}', 'pr', this.value)" class="w-16 p-1 text-center border border-slate-300 rounded font-mono font-bold">
+                    </td>
+                    <td class="p-3 text-center font-bold text-indigo-700">${grade}</td>
+                    <td class="p-3 text-center font-mono font-bold">${gp.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateMarks(id, field, value) {
+            if (!marksLedger[id]) marksLedger[id] = { th: 0, pr: 0 };
+            marksLedger[id][field] = parseFloat(value) || 0;
+            renderMarksLedger();
+        }
+
+        function saveAllMarks() {
+            alert('All CDC marks saved successfully to IEMIS database!');
+        }
+
+        // Government CDC Standard Grade Calculator (A+ to NG)
+        function calculateCDCGrade(percentage) {
+            if (percentage >= 90) return { grade: 'A+', gp: 4.0 };
+            if (percentage >= 80) return { grade: 'A', gp: 3.6 };
+            if (percentage >= 70) return { grade: 'B+', gp: 3.2 };
+            if (percentage >= 60) return { grade: 'B', gp: 2.8 };
+            if (percentage >= 50) return { grade: 'C+', gp: 2.4 };
+            if (percentage >= 40) return { grade: 'C', gp: 2.0 };
+            if (percentage >= 35) return { grade: 'D', gp: 1.6 };
+            return { grade: 'NG', gp: 0.0 };
+        }
+
+        // Grade Sheet Generation
+        function populateGradeSheetDropdown() {
+            const select = document.getElementById('selectGradeStudent');
+            select.innerHTML = '';
+            students.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.innerText = `${s.name} (Class ${s.class})`;
+                select.appendChild(opt);
+            });
+            generateGradeSheet();
+        }
+
+        function generateGradeSheet() {
+            const stuId = document.getElementById('selectGradeStudent').value;
+            const stu = students.find(s => s.id === stuId);
+            if (!stu) return;
+
+            document.getElementById('gsName').innerText = stu.name;
+            document.getElementById('gsEmis').innerText = stu.id;
+            document.getElementById('gsClass').innerText = stu.class;
+            document.getElementById('gsRoll').innerText = stu.roll;
+
+            const marks = marksLedger[stu.id] || { th: 60, pr: 20 };
+            const total = marks.th + marks.pr;
+            const { grade, gp } = calculateCDCGrade(total);
+
+            const tbody = document.getElementById('gsSubjectRows');
+            tbody.innerHTML = `
+                <tr>
+                    <td class="border border-slate-800 p-2 text-left font-semibold">Compulsory English (ENG-101)</td>
+                    <td class="border border-slate-800 p-2 font-mono">4.0</td>
+                    <td class="border border-slate-800 p-2 font-mono">${calculateCDCGrade(marks.th * 100 / 75).grade}</td>
+                    <td class="border border-slate-800 p-2 font-mono">${calculateCDCGrade(marks.pr * 100 / 25).grade}</td>
+                    <td class="border border-slate-800 p-2 font-bold">${grade}</td>
+                    <td class="border border-slate-800 p-2 font-mono font-bold">${gp.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td class="border border-slate-800 p-2 text-left font-semibold">Compulsory Nepali (NEP-102)</td>
+                    <td class="border border-slate-800 p-2 font-mono">4.0</td>
+                    <td class="border border-slate-800 p-2 font-mono">A</td>
+                    <td class="border border-slate-800 p-2 font-mono">A+</td>
+                    <td class="border border-slate-800 p-2 font-bold">A</td>
+                    <td class="border border-slate-800 p-2 font-mono font-bold">3.60</td>
+                </tr>
+                <tr>
+                    <td class="border border-slate-800 p-2 text-left font-semibold">Compulsory Mathematics (MTH-103)</td>
+                    <td class="border border-slate-800 p-2 font-mono">5.0</td>
+                    <td class="border border-slate-800 p-2 font-mono">B+</td>
+                    <td class="border border-slate-800 p-2 font-mono">A</td>
+                    <td class="border border-slate-800 p-2 font-bold">B+</td>
+                    <td class="border border-slate-800 p-2 font-mono font-bold">3.20</td>
+                </tr>
+                <tr>
+                    <td class="border border-slate-800 p-2 text-left font-semibold">Compulsory Science & Tech (SCI-104)</td>
+                    <td class="border border-slate-800 p-2 font-mono">5.0</td>
+                    <td class="border border-slate-800 p-2 font-mono">A+</td>
+                    <td class="border border-slate-800 p-2 font-mono">A+</td>
+                    <td class="border border-slate-800 p-2 font-bold">A+</td>
+                    <td class="border border-slate-800 p-2 font-mono font-bold">4.00</td>
+                </tr>
+            `;
+
+            document.getElementById('gsGpa').innerText = gp.toFixed(2);
+        }
+
+        function downloadGradePDF() {
+            const element = document.getElementById('gradeSheetPrintable');
+            html2pdf().from(element).save('IEMIS_GradeSheet_2083.pdf');
+        }
+
+        // Render Teachers
+        function renderTeachers() {
+            const container = document.getElementById('teacherGrid');
+            container.innerHTML = '';
+            teachers.forEach(t => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center space-x-4";
+                card.innerHTML = `
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-lg">
+                        ${t.name.charAt(0)}
+                    </div>
+                    <div class="space-y-0.5 text-xs">
+                        <h4 class="font-bold text-slate-800 text-sm">${t.name}</h4>
+                        <p class="text-slate-500">${t.title}</p>
+                        <p class="text-indigo-600 font-medium">Subject: ${t.subject}</p>
+                        <p class="font-mono text-slate-400">Phone: ${t.phone}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Export Table to Excel
+        function exportToExcel(tableID) {
+            const table = document.getElementById(tableID);
+            const wb = XLSX.utils.table_to_book(table, { sheet: "IEMIS Data" });
+            XLSX.writeFile(wb, "IEMIS_School_Export_2083.xlsx");
+        }
+
+        // Modal Controls
+        function openSyncModal() {
+            document.getElementById('syncModal').classList.remove('hidden');
+        }
+
+        function closeSyncModal() {
+            document.getElementById('syncModal').classList.add('hidden');
+        }
+
+        function handleExcelUpload(e) {
+            alert('File processed! Data synchronized with IEMIS 2083 server.');
+            closeSyncModal();
+        }
+
+        function logoutUser() {
+            if (confirm('Are you sure you want to log out of IEMIS?')) {
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
