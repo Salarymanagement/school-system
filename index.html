@@ -1,0 +1,2552 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>विद्यालय तलब व्यवस्थापन प्रणाली (Offline)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['"Noto Sans Devanagari"', 'Inter', 'sans-serif'] } } }
+    }
+  </script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDwJVTUfMESeJCNFmpm8AfnGjjpfPUs73A",
+    authDomain: "salary-manahemeny-system.firebaseapp.com",
+    projectId: "salary-manahemeny-system",
+    storageBucket: "salary-manahemeny-system.firebasestorage.app",
+    messagingSenderId: "960600286508",
+    appId: "1:960600286508:web:5657cf126110e2da25f889",
+    measurementId: "G-J2LQ80GYHP"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+async function saveToCloud() {
+    try {
+        const dataToSave = {
+            schoolData: window.schoolData,
+            salarySettingsData: window.salarySettingsData
+        };
+        await db.collection("schools").doc("main_data").set(dataToSave);
+        showToast('क्लाउडमा सफलतापूर्वक सेभ भयो !');
+    } catch(e) {
+        console.error(e);
+        showToast('क्लाउड सेभ गर्न समस्या आयो');
+    }
+}
+
+async function loadFromCloud() {
+    try {
+        const doc = await db.collection("schools").doc("main_data").get();
+        if (doc.exists) {
+            const remoteData = doc.data();
+            window.schoolData = remoteData.schoolData || [];
+            window.salarySettingsData = remoteData.salarySettingsData || {};
+            renderApp();
+            renderSalarySettings();
+            showToast('क्लाउडबाट डाटा लोड भयो !');
+        }
+    } catch(e) { 
+        console.error(e); 
+    }
+}
+
+
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadFromCloud, 1000);
+  });
+</script>
+
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printableArea, #printableArea * { visibility: visible; }
+      #printableArea { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 4px; background: white; }
+      #bankLetterPrintArea, #bankLetterPrintArea * { visibility: visible; }
+      #bankLetterPrintArea { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 4px; background: white; }
+      .no-print { display: none !important; }
+    }
+    .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 7px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+    .bank-letter-compact { font-size: 10px; line-height: 1.2; }
+    .bank-letter-compact table { font-size: 9px; }
+    @media print { @page { size: A4; margin: 8mm; } }
+    #loadingOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; transition: opacity 0.3s; }
+    #loadingOverlay.hidden { display: none; }
+    .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .save-indicator { position: fixed; bottom: 20px; right: 20px; background: #10b981; color: white; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; opacity: 0; transition: opacity 0.3s; z-index: 9998; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .save-indicator.show { opacity: 1; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.7); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col md:flex-row">
+
+  <div id="loadingOverlay" class="hidden">
+    <div class="spinner mb-4"></div>
+    <p class="text-sm font-medium">लोड हुँदैछ...</p>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="fixed inset-0 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center shadow-lg mb-3">
+          <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        </div>
+        <h1 class="text-xl font-bold text-slate-800">तलब व्यवस्थापन प्रणाली</h1>
+        <p class="text-xs text-slate-500 mt-1">Offline संस्करण —तपाईंको लागि मात्र</p>
+      </div>
+
+      <div id="loginFormArea">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1">Username</label>
+            <input type="text" id="loginUsername" class="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="admin">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">Password</label>
+            <input type="password" id="loginPassword" class="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" onkeypress="if(event.key==='Enter')doLogin()">
+          </div>
+          <div id="loginError" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs p-2.5 rounded-lg"></div>
+          <button onclick="doLogin()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">लगइन गर्नुहोस्</button>
+          
+         <!-- Developer Credit -->
+<div class="pt-3 mt-2 border-t border-slate-100 text-center space-y-2">
+  <p class="text-[11px] text-slate-500 font-medium">
+    Developed By: 
+    <span class="font-bold text-blue-700">Chandra Shekhar Kasula</span>
+  </p>
+  
+  <!-- Social Links -->
+  <div class="flex items-center justify-center space-x-3 pt-1">
+    <a href="https://youtube.com/@trick2079?si=sir4eNgO2HhViqvs" target="_blank" rel="noopener" 
+       class="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-[10px] font-semibold transition-all">
+      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+      </svg>
+      <span>YouTube</span>
+    </a>
+    
+    <a href="https://www.facebook.com/chandra.kasula?mibextid=ZbWKwL" target="_blank" rel="noopener" 
+       class="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-semibold transition-all">
+      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+      </svg>
+      <span>Facebook</span>
+    </a>
+  </div>
+  
+  <p class="text-[9px] text-slate-400">© 2026 — All Rights Reserved</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="mainApp" class="hidden w-full flex flex-col md:flex-row min-h-screen">
+
+    <aside class="no-print w-full md:w-64 bg-slate-900 text-white flex flex-col shrink-0 shadow-xl border-r border-slate-800">
+      <div class="p-5 border-b border-slate-800">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center shadow-lg border border-blue-400/30">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          </div>
+          <div>
+            <h1 class="text-base font-bold leading-tight text-white">शिक्षक तलब व्यवस्थापन</h1>
+            <p class="text-xs text-blue-300 font-medium">Offline संस्करण</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-800/80 border-b border-slate-800">
+        <label class="text-xs font-semibold text-slate-400 block mb-1 uppercase">विद्यालय:</label>
+        <p id="sidebarSchoolName" class="text-xs text-amber-300 font-bold truncate">लोड हुँदै...</p>
+        <div class="flex items-center space-x-1.5 mt-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-[11px] text-emerald-300 font-medium">Offline • Local Storage</span>
+        </div>
+      </div>
+
+      <nav class="flex-1 p-3 space-y-1.5 overflow-y-auto">
+        <button onclick="navigateTab('dashboard')" id="btn-dashboard" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all bg-blue-600 text-white shadow-sm"><span>ड्यासबोर्ड</span></button>
+        <button onclick="navigateTab('employees')" id="btn-employees" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span>शिक्षक Master Data (<span id="sidebarTeacherCount">०</span>)</span></button>
+        <button onclick="navigateTab('salary-settings')" id="btn-salary-settings" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span>तलब स्केल सेटिङ</span></button>
+        <button onclick="navigateTab('import')" id="btn-import" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span class="text-emerald-300 font-semibold">Excel Import</span></button>
+        <button onclick="navigateTab('payroll')" id="btn-payroll" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span>तलब हिसाब इन्जिन</span></button>
+        <button onclick="navigateTab('report')" id="btn-report" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span>तलवी भरपाइ</span></button>
+        <button onclick="navigateTab('advance')" id="btn-advance" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span class="text-amber-300 font-semibold">पेश्की कट्टी</span></button>
+        <button onclick="navigateTab('partial-days')" id="btn-partial-days" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"><span class="text-rose-300 font-semibold">दिन मिलान</span></button>
+
+        <div class="pt-3 mt-2 border-t border-slate-800">
+          <p class="text-[10px] font-bold text-slate-500 uppercase px-3 mb-2">विविध फारामहरू</p>
+          <button onclick="navigateTab('epf')" id="btn-epf" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"><span>कर्मचारी सञ्चय कोष</span></button>
+          <button onclick="navigateTab('insurance')" id="btn-insurance" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"><span>शिक्षक बिमा</span></button>
+          <button onclick="navigateTab('cit')" id="btn-cit" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"><span>ना.ल.को. कोष</span></button>
+          <button onclick="navigateTab('tax')" id="btn-tax" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"><span>सामाजिक सुरक्षा कर</span></button>
+          <button onclick="navigateTab('bank-letter')" id="btn-bank-letter" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"><span>बैङ्क लेटर</span></button>
+          <button onclick="navigateTab('school-info')" id="btn-school-info" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"><span>विद्यालय विवरण</span></button>
+          <button onclick="navigateTab('backup')" id="btn-backup" class="nav-btn w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-amber-300 hover:bg-slate-800 hover:text-white"><span>💾 Backup / Restore</span></button>
+        </div>
+      </nav>
+
+      <div class="p-3 border-t border-slate-800 bg-slate-950/60 space-y-2">
+        <button onclick="logoutUser()" class="w-full px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          <span>लगआउट</span>
+        </button>
+        
+        <!-- Developer Credit in Sidebar -->
+        <div class="text-center pt-1">
+          <p class="text-[9px] text-slate-500 leading-tight">
+            Developed By<br>
+            <span class="text-amber-400 font-bold text-[10px]">Chandra Shekhar Kasula</span>
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <header class="no-print bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs sticky top-0 z-30">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span id="headerSchoolCode" class="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">EMIS: ...</span>
+            <span class="text-xs text-slate-500">|</span>
+            <span id="headerFiscalYear" class="text-xs font-medium text-slate-600">आ.व. २०८३/०८४</span>
+          </div>
+          <h2 id="headerSchoolName" class="text-lg font-bold text-slate-800 mt-0.5">लोड हुँदै...</h2>
+          <p id="headerSchoolAddress" class="text-xs text-slate-500"></p>
+        </div>
+        <div class="flex items-center flex-wrap gap-2">
+          <button onclick="manualSave()" id="saveBtn" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+            <span>Save गर्नुहोस्</span>
+          </button>
+          <button onclick="openBackupModal()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">Backup</button>
+          <button onclick="printSalarySheet()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+        </div>
+      </header>
+
+      <div id="toastNotification" class="no-print fixed top-4 right-4 z-[100] transform transition-all duration-300 translate-y-[-120%] opacity-0 pointer-events-none bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700 max-w-sm">
+        <span id="toastMessage" class="text-sm font-medium">कार्य सम्पन्न भयो।</span>
+      </div>
+
+      <div class="p-6 flex-1 space-y-6">
+
+        <!-- TAB: ड्यासबोर्ड -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+          <div id="dashboardEmptyState" class="hidden bg-amber-50 border-2 border-dashed border-amber-300 rounded-xl p-8 text-center">
+            <h3 class="text-lg font-bold text-amber-900 mb-2">कुनै शिक्षक डाटा छैन</h3>
+            <p class="text-sm text-amber-800 mb-4">Excel बाट शिक्षकहरूको डाटा Import गर्नुहोस्।</p>
+            <button onclick="navigateTab('import')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">Excel Import गर्नुहोस्</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+              <p class="text-xs font-semibold text-slate-500 uppercase">कुल शिक्षक/कर्मचारी</p>
+              <h3 id="statTotalEmployees" class="text-2xl font-bold text-slate-900 mt-1">० जना</h3>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+              <p class="text-xs font-semibold text-slate-500 uppercase">खुद निकासा</p>
+              <h3 id="statNetPayable" class="text-2xl font-bold text-emerald-700 mt-1">रू. ०.००/-</h3>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+              <p class="text-xs font-semibold text-slate-500 uppercase">कुल कट्टी</p>
+              <h3 id="statTotalDeduction" class="text-2xl font-bold text-amber-700 mt-1">रू. ०.००/-</h3>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+              <p class="text-xs font-semibold text-slate-500 uppercase">सा.सु. कर</p>
+              <h3 id="statTotalTax" class="text-2xl font-bold text-purple-700 mt-1">रू. ०.००/-</h3>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <h3 class="text-base font-bold text-slate-800 mb-4">तलब सारांश</h3>
+            <div class="overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs border border-slate-200">
+                <thead class="bg-slate-100 font-semibold border-b">
+                  <tr>
+                    <th class="p-2.5">क्र.सं.</th>
+                    <th class="p-2.5">नाम</th>
+                    <th class="p-2.5">पद/दर्जा</th>
+                    <th class="p-2.5 text-right">मासिक कुल</th>
+                    <th class="p-2.5 text-right">खुद भुक्तानी</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboardQuickTable" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: Master Data -->
+        <section id="tab-employees" class="tab-content hidden space-y-4">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">शिक्षक Master Data</h3>
+                <p class="text-xs text-slate-500">Checkbox छानी धेरै शिक्षक हटाउन मिल्ने।</p>
+              </div>
+              <div class="flex items-center space-x-2 flex-wrap">
+                <span id="selectedCountBadge" class="hidden px-3 py-1.5 bg-blue-100 text-blue-800 rounded-lg text-xs font-bold"></span>
+                <button onclick="deleteSelectedTeachers()" id="deleteSelectedBtn" class="hidden px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold">छानिएका हटाउने</button>
+                <button onclick="deleteAllTeachers()" class="px-3.5 py-2 bg-rose-800 hover:bg-rose-900 text-white rounded-lg text-xs font-semibold">Delete All</button>
+                <button onclick="navigateTab('import')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold">Excel Import</button>
+                <button onclick="openNewTeacherModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">नयाँ शिक्षक</button>
+              </div>
+            </div>
+
+            <div id="employeeEmptyState" class="hidden mt-6 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
+              <h3 class="text-base font-bold text-slate-700 mb-2">कुनै शिक्षक डाटा छैन</h3>
+              <p class="text-xs text-slate-500">Excel Import गर्नुहोस्।</p>
+            </div>
+
+            <div id="employeeTableWrapper" class="mt-4 overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs border border-slate-200 whitespace-nowrap">
+                <thead class="bg-slate-100 font-semibold border-b">
+                  <tr>
+                    <th class="p-2.5 w-10 text-center"><input type="checkbox" id="selectAllTeachers" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded accent-blue-600"></th>
+                    <th class="p-2.5">क्र.सं.</th>
+                    <th class="p-2.5">नाम (नेपाली / English)</th>
+                    <th class="p-2.5">योग्यता</th>
+                    <th class="p-2.5">दर्जा / पद</th>
+                    <th class="p-2.5">लिङ्ग</th>
+                    <th class="p-2.5">नियुक्ति</th>
+                    <th class="p-2.5">संकेत नं.</th>
+                    <th class="p-2.5 text-right">स्केल</th>
+                    <th class="p-2.5 text-center">ग्रेड</th>
+                    <th class="p-2.5 text-right">ग्रेड दर</th>
+                    <th class="p-2.5 text-center">बिमा</th>
+                    <th class="p-2.5">क.सं.कोष</th>
+                    <th class="p-2.5">ना.ल.कोष</th>
+                    <th class="p-2.5">PAN</th>
+                    <th class="p-2.5">खाता</th>
+                    <th class="p-2.5">प्र.अ.</th>
+                    <th class="p-2.5">स्थानीय</th>
+                    <th class="p-2.5">प्रोत्साहन</th>
+                    <th class="p-2.5 text-center">कार्य</th>
+                  </tr>
+                </thead>
+                <tbody id="employeeMasterTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: तलब सेटिङ -->
+        <section id="tab-salary-settings" class="tab-content hidden space-y-5">
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+              <h3 class="text-base font-bold text-slate-800">तलब स्केल सेटिङ (दर्जा अनुसार)</h3>
+              <div class="flex space-x-2">
+                <button onclick="addNewRank()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold">नयाँ तह थप्नुहोस्</button>
+                <button onclick="saveSalarySettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">स्केल सुरक्षित</button>
+              </div>
+            </div>
+            <div class="overflow-x-auto border rounded-xl">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-100 font-semibold border-b">
+                  <tr>
+                    <th class="p-3">दर्जा</th>
+                    <th class="p-3">तलब स्केल</th>
+                    <th class="p-3">ग्रेड दर</th>
+                    <th class="p-3 text-center">कार्य</th>
+                  </tr>
+                </thead>
+                <tbody id="salarySettingsBody" class="divide-y divide-slate-200"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">शिक्षक/कर्मचारीको तलब विवरण</h3>
+                <p class="text-xs text-slate-500">प्रत्येक शिक्षकको दर्जा अनुसार तलब स्केल, ग्रेड र ग्रेडसहितको कुल तलब</p>
+              </div>
+              <span id="salaryDetailsCount" class="text-xs font-bold px-3 py-1 bg-blue-100 text-blue-800 rounded-lg">० जना</span>
+            </div>
+            <div class="overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs border border-slate-200">
+                <thead class="bg-blue-50 font-semibold border-b">
+                  <tr>
+                    <th class="p-2 border">क्र.सं.</th>
+                    <th class="p-2 border">नाम</th>
+                    <th class="p-2 border">दर्जा</th>
+                    <th class="p-2 border">पद</th>
+                    <th class="p-2 border">नियुक्ति</th>
+                    <th class="p-2 border text-right">तलब स्केल</th>
+                    <th class="p-2 border text-center">ग्रेड</th>
+                    <th class="p-2 border text-right">ग्रेड दर</th>
+                    <th class="p-2 border text-right">ग्रेड रकम</th>
+                    <th class="p-2 border text-right font-bold text-blue-800">ग्रेडसहित कुल</th>
+                  </tr>
+                </thead>
+                <tbody id="teacherSalaryDetailsBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: Excel Import -->
+        <section id="tab-import" class="tab-content hidden space-y-5">
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-5">
+            <div class="flex items-center justify-between pb-4 border-b">
+              <h3 class="text-base font-bold text-slate-800">Excel File अपलोड (26 स्तम्भ)</h3>
+              <button onclick="downloadSampleTemplate()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border">नमूना Template</button>
+            </div>
+            <div id="dropZone" class="border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/50 rounded-2xl p-8 text-center cursor-pointer">
+              <p class="text-sm font-bold text-slate-800">यहाँ Excel File तान्नुहोस् वा छनोट गर्नुहोस्</p>
+              <p class="text-xs text-slate-500 mt-0.5">.xlsx, .xls, वा .csv</p>
+              <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileUpload(event)">
+              <button onclick="document.getElementById('excelFileInput').click()" class="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">फाइल छनोट गर्नुहोस्</button>
+            </div>
+            <div id="importPreviewContainer" class="hidden space-y-4 pt-2">
+              <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
+                <span id="importFileStatusText" class="text-xs font-bold text-emerald-800"></span>
+                <div class="flex space-x-2">
+                  <button onclick="cancelImport()" class="px-3 py-1.5 border rounded-lg text-xs">रद्द</button>
+                  <button onclick="commitImportData()" class="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs">Master Data मा थप्नुहोस्</button>
+                </div>
+              </div>
+              <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left text-xs whitespace-nowrap">
+                  <thead class="bg-slate-100 font-semibold border-b"><tr id="importPreviewTableHead"></tr></thead>
+                  <tbody id="importPreviewTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: तलब हिसाब -->
+        <section id="tab-payroll" class="tab-content hidden space-y-4">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <h3 class="text-base font-bold text-slate-800 mb-4">तलब हिसाब इन्जिन</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-slate-50 rounded-xl border mb-6">
+              <div><label class="block text-xs font-semibold mb-1">आर्थिक वर्ष:</label>
+                <select id="calcFiscalYear" class="w-full text-xs border rounded-lg p-2 bg-white" onchange="updatePeriodMonths()">
+                  <option value="२०८१/०८२">२०८१/०८२</option><option value="२०८२/०८३">२०८२/०८३</option>
+                  <option value="२०८३/०८४" selected>२०८३/०८४</option><option value="२०८४/०८५">२०८४/०८५</option>
+                  <option value="२०८५/०८६">२०८५/०८६</option>
+                </select>
+              </div>
+              <div><label class="block text-xs font-semibold mb-1">देखि महिना:</label>
+                <select id="calcFromMonth" class="w-full text-xs border rounded-lg p-2 bg-white" onchange="updatePeriodMonths()">
+                  <option value="1">बैशाख</option><option value="2">जेठ</option><option value="3">असार</option>
+                  <option value="4" selected>साउन</option><option value="5">भदौ</option><option value="6">असोज</option>
+                  <option value="7">कात्तिक</option><option value="8">मंसिर</option><option value="9">पुष</option>
+                  <option value="10">माघ</option><option value="11">फागुन</option><option value="12">चैत</option>
+                </select>
+              </div>
+              <div><label class="block text-xs font-semibold mb-1">सम्म महिना:</label>
+                <select id="calcToMonth" class="w-full text-xs border rounded-lg p-2 bg-white" onchange="updatePeriodMonths()">
+                  <option value="1">बैशाख</option><option value="2">जेठ</option><option value="3">असार</option>
+                  <option value="4">साउन</option><option value="5">भदौ</option><option value="6" selected>असोज</option>
+                  <option value="7">कात्तिक</option><option value="8">मंसिर</option><option value="9">पुष</option>
+                  <option value="10">माघ</option><option value="11">फागुन</option><option value="12">चैत</option>
+                </select>
+              </div>
+              <div><label class="block text-xs font-semibold mb-1">अवधि:</label>
+                <input type="text" id="calcPeriodDisplay" readonly class="w-full text-xs border rounded-lg p-2 bg-slate-100 font-bold text-blue-700">
+              </div>
+              <div><label class="block text-xs font-semibold mb-1">चाडपर्व भत्ता:</label>
+                <select id="calcFestivalOption" class="w-full text-xs border rounded-lg p-2 bg-white">
+                  <option value="festival">चाडपर्व भत्ता</option><option value="dress">पोशाक भत्ता</option><option value="no">समावेश नगर्ने</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border mb-6">
+              <div><label class="block text-xs font-semibold mb-1">पोशाक भत्ता रकम:</label>
+                <input type="number" id="calcDressAmount" value="5000" class="w-full text-xs border rounded-lg p-2 bg-white font-bold text-blue-700">
+              </div>
+              <div class="flex items-end">
+                <button onclick="runSalaryCalculationEngine()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">हिसाब रन गर्नुहोस्</button>
+              </div>
+            </div>
+            <div class="overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs border">
+                <thead class="bg-indigo-50 font-semibold border-b">
+                  <tr>
+                    <th class="p-2.5">क्र.सं.</th><th class="p-2.5">नाम</th>
+                    <th class="p-2.5 text-right">ग्रेडसहित</th><th class="p-2.5 text-right">मासिक कुल</th>
+                    <th class="p-2.5 text-right">१ महिना कट्टी</th><th class="p-2.5 text-right">अवधि कट्टी</th>
+                    <th class="p-2.5 text-right">चाडपर्व</th><th class="p-2.5 text-right">कर</th>
+                    <th class="p-2.5 text-right font-bold text-emerald-800">खुद</th>
+                  </tr>
+                </thead>
+                <tbody id="calculationResultTable" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: तलवी भरपाइ -->
+        <section id="tab-report" class="tab-content hidden space-y-4">
+          <div class="no-print bg-white p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <h3 class="text-sm font-bold">आधिकारिक तलवी भरपाइ</h3>
+            <div class="flex items-center space-x-2 flex-wrap">
+              <button onclick="selectAllReportTeachers()" class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border">Select All</button>
+              <button onclick="deselectAllReportTeachers()" class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border">Deselect All</button>
+              <button onclick="exportReportToExcel()" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-semibold">Excel</button>
+              <button onclick="printSalarySheet()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+            </div>
+          </div>
+          <div class="no-print bg-blue-50 p-4 rounded-xl border border-blue-200">
+            <p class="text-xs font-bold text-blue-900 mb-3">शिक्षक छान्नुहोस्:</p>
+            <div id="reportTeacherCheckboxes" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+          </div>
+          <div id="printableArea" class="bg-white p-4 rounded-xl border shadow-sm overflow-x-auto text-[10px]">
+            <div class="text-center mb-2">
+              <p class="text-[10px] font-bold">तलवी भरपाइ, आ.व <span id="printFiscalYear">२०८३/०८४</span></p>
+              <h4 class="text-sm font-bold text-blue-900 underline mt-0.5" id="printSchoolName"></h4>
+              <p class="text-[10px]" id="printPeriodText"></p>
+            </div>
+            <table class="w-full border-collapse border border-slate-800 text-center">
+              <thead>
+                <tr class="bg-slate-100 font-bold border-b border-slate-800">
+                  <th rowspan="2" class="border p-0.5 bg-yellow-50">क्र.सं.</th>
+                  <th rowspan="2" class="border p-0.5">नाम थर</th>
+                  <th rowspan="2" class="border p-0.5">दर्जा</th>
+                  <th rowspan="2" class="border p-0.5">तलब स्केल</th>
+                  <th rowspan="2" class="border p-0.5">ग्रेड</th>
+                  <th rowspan="2" class="border p-0.5">ग्रेड रकम</th>
+                  <th rowspan="2" class="border p-0.5">जम्मा</th>
+                  <th colspan="3" class="border p-0.5">थप रकम</th>
+                  <th rowspan="2" class="border p-0.5">महंगी</th>
+                  <th rowspan="2" class="border p-0.5">प्र.अ.</th>
+                  <th rowspan="2" class="border p-0.5">स्थानीय</th>
+                  <th rowspan="2" class="border p-0.5">प्रोत्साहन</th>
+                  <th rowspan="2" class="border p-0.5">मासिक कुल</th>
+                  <th colspan="3" class="border p-0.5">१ महिना कट्टी</th>
+                  <th colspan="4" class="border p-0.5">अवधि कट्टी</th>
+                  <th rowspan="2" class="border p-0.5">चाडपर्व</th>
+                  <th rowspan="2" class="border p-0.5">कर सहित</th>
+                  <th rowspan="2" class="border p-0.5">सा.सु. कर</th>
+                  <th rowspan="2" class="border p-0.5">पेश्की</th>
+                  <th rowspan="2" class="border p-0.5 bg-yellow-100 font-bold">खुद पाउने</th>
+                  <th rowspan="2" class="border p-0.5 bg-blue-100 font-bold">हस्ताक्षर</th>
+                </tr>
+                <tr class="bg-slate-50 font-semibold border-b">
+                  <th class="border p-0.5">क.सं.को.</th><th class="border p-0.5">बिमा</th><th class="border p-0.5">प्रोत्साहन</th>
+                  <th class="border p-0.5">क.सं.को.</th><th class="border p-0.5">ना.ल.को</th><th class="border p-0.5">बिमा</th>
+                  <th class="border p-0.5">क.सं.को.</th><th class="border p-0.5">ना.ल.को</th><th class="border p-0.5">बिमा</th><th class="border p-0.5 font-bold">जम्मा</th>
+                </tr>
+              </thead>
+              <tbody id="officialSalaryRequisitionBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB: पेश्की -->
+        <section id="tab-advance" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-5">
+            <h3 class="text-base font-bold">पेश्की कट्टी</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-amber-50 rounded-xl border">
+              <div><label class="block text-xs font-semibold mb-1">शिक्षक:</label>
+                <select id="advanceTeacherSelect" class="w-full text-xs border rounded-lg p-2 bg-white"></select>
+              </div>
+              <div><label class="block text-xs font-semibold mb-1">रकम (रू.):</label>
+                <input type="number" id="advanceAmount" value="0" class="w-full text-xs border rounded-lg p-2 bg-white font-bold">
+              </div>
+              <div class="flex items-end">
+                <button onclick="applyAdvanceDeduction()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">लागू गर्नुहोस्</button>
+              </div>
+            </div>
+            <div class="overflow-x-auto border rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-amber-100 font-semibold border-b">
+                  <tr><th class="p-3">क्र.सं.</th><th class="p-3">नाम</th><th class="p-3">दर्जा</th><th class="p-3 text-right">रकम</th><th class="p-3 text-center">कार्य</th></tr>
+                </thead>
+                <tbody id="advanceDeductionTableBody" class="divide-y"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: दिन मिलान -->
+        <section id="tab-partial-days" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-5">
+            <h3 class="text-base font-bold">दिन मिलान</h3>
+            <div class="p-4 bg-rose-50 rounded-xl border">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="block text-xs font-semibold mb-1">शिक्षक:</label>
+                  <select id="partialDaysTeacherSelect" class="w-full text-xs border rounded-lg p-2 bg-white"></select>
+                </div>
+                <div><label class="block text-xs font-semibold mb-1">दिन (३० मध्ये):</label>
+                  <input type="number" id="partialDaysWorked" value="30" min="1" max="30" class="w-full text-xs border rounded-lg p-2 bg-white font-bold">
+                </div>
+                <div class="flex items-end">
+                  <button onclick="applyPartialDays()" class="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold">लागू गर्नुहोस्</button>
+                </div>
+              </div>
+            </div>
+            <div class="overflow-x-auto border rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-rose-100 font-semibold border-b">
+                  <tr><th class="p-3">क्र.सं.</th><th class="p-3">नाम</th><th class="p-3">दर्जा</th><th class="p-3 text-center">दिन</th><th class="p-3 text-center">अनुपात</th><th class="p-3 text-center">कार्य</th></tr>
+                </thead>
+                <tbody id="partialDaysTableBody" class="divide-y"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: EPF -->
+        <section id="tab-epf" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b">
+              <h3 class="text-base font-bold">कर्मचारी सञ्चय कोष (EPF)</h3>
+              <div class="flex space-x-2">
+                <button onclick="exportEPFToExcel()" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-semibold">Excel</button>
+                <button onclick="printCurrentTab()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+              </div>
+            </div>
+            <table id="epfTable" class="w-full text-left text-xs border">
+              <thead class="bg-blue-50 font-semibold border-b">
+                <tr>
+                  <th class="p-2.5 border">S.NO</th><th class="p-2.5 border">Designation</th>
+                  <th class="p-2.5 border">NAME</th><th class="p-2.5 border">PF Number</th>
+                  <th class="p-2.5 border text-right">Total Fund</th>
+                  <th class="p-2.5 border text-right">Employee Part</th>
+                  <th class="p-2.5 border text-right">Employer Part</th>
+                </tr>
+              </thead>
+              <tbody id="epfTableBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB: बिमा -->
+        <section id="tab-insurance" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b">
+              <h3 class="text-base font-bold">शिक्षक बिमा</h3>
+              <div class="flex space-x-2">
+                <button onclick="exportInsuranceToExcel()" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-semibold">Excel</button>
+                <button onclick="printCurrentTab()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+              </div>
+            </div>
+            <table id="insuranceTable" class="w-full text-left text-xs border">
+              <thead class="bg-emerald-50 font-semibold border-b">
+                <tr>
+                  <th class="p-2.5 border">AC NO</th><th class="p-2.5 border">OLD AC NO</th>
+                  <th class="p-2.5 border">EMP SERIAL NO</th>
+                  <th class="p-2.5 border text-right">AMOUNT</th><th class="p-2.5 border">CUSTOMER NAME</th>
+                </tr>
+              </thead>
+              <tbody id="insuranceTableBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB: ना.ल.को. -->
+        <section id="tab-cit" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b">
+              <h3 class="text-base font-bold">ना.ल.को. कोष</h3>
+              <div class="flex space-x-2">
+                <button onclick="exportCITToExcel()" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-semibold">Excel</button>
+                <button onclick="printCurrentTab()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+              </div>
+            </div>
+            <table id="citTable" class="w-full text-left text-xs border">
+              <thead class="bg-purple-50 font-semibold border-b">
+                <tr>
+                  <th class="p-2.5 border">AC NO</th><th class="p-2.5 border">OLD AC NO</th>
+                  <th class="p-2.5 border">EMP SERIAL NO</th>
+                  <th class="p-2.5 border text-right">AMOUNT</th><th class="p-2.5 border">CUSTOMER NAME</th>
+                </tr>
+              </thead>
+              <tbody id="citTableBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB: कर -->
+        <section id="tab-tax" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b">
+              <h3 class="text-base font-bold">सामाजिक सुरक्षा कर (TDS)</h3>
+              <div class="flex space-x-2">
+                <button onclick="exportTaxToExcel()" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-semibold">Excel</button>
+                <button onclick="printCurrentTab()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+              </div>
+            </div>
+            <table id="taxTable" class="w-full text-left text-xs border">
+              <thead class="bg-rose-50 font-semibold border-b">
+                <tr>
+                  <th class="p-2.5 border">Pan</th><th class="p-2.5 border">Name</th>
+                  <th class="p-2.5 border">TDate</th><th class="p-2.5 border">Date Type</th>
+                  <th class="p-2.5 border text-right">Payment Amount</th>
+                  <th class="p-2.5 border text-right">TDS Amount</th>
+                  <th class="p-2.5 border text-center">TDS Type</th>
+                </tr>
+              </thead>
+              <tbody id="taxTableBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB: बैंक लेटर -->
+        <section id="tab-bank-letter" class="tab-content hidden space-y-4">
+          <div class="no-print bg-white p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3">
+            <h3 class="text-sm font-bold">बैङ्क लेटर</h3>
+            <div class="flex items-center space-x-2 flex-wrap">
+              <div class="flex items-center space-x-1 bg-slate-50 border rounded-lg px-2 py-1">
+                <label class="text-xs font-semibold">मिति:</label>
+                <input type="text" id="bankLetterDate" value="२०८३/०६/३०" class="w-28 text-xs border-0 bg-transparent font-bold text-blue-700 outline-none" onchange="renderBankLetterFromTab()">
+              </div>
+              <button onclick="printBankLetter()" class="px-3 py-2 bg-blue-700 text-white rounded-lg text-xs font-semibold">प्रिन्ट</button>
+              <button onclick="exportBankLetterToDocx()" class="px-3 py-2 bg-indigo-700 text-white rounded-lg text-xs font-semibold">DOCX Export</button>
+            </div>
+          </div>
+          <div id="bankLetterPrintArea" class="bg-white p-4 rounded-xl border shadow-sm">
+            <div id="bankLetterContent" class="bank-letter-compact"></div>
+          </div>
+        </section>
+
+        <!-- TAB: विद्यालय विवरण -->
+        <section id="tab-school-info" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-5">
+            <div class="flex items-center justify-between pb-4 border-b flex-wrap gap-2">
+              <h3 class="text-base font-bold">विद्यालय विवरण</h3>
+              <div class="flex space-x-2">
+                <button onclick="toggleSchoolInfoEdit()" id="schoolInfoEditBtn" class="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-semibold">Edit</button>
+                <button onclick="saveSchoolInfo()" id="schoolInfoSaveBtn" class="hidden px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold">सुरक्षित</button>
+              </div>
+            </div>
+            <div id="schoolInfoContent" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+          </div>
+        </section>
+
+        <!-- TAB: Backup -->
+        <section id="tab-backup" class="tab-content hidden space-y-4">
+          <div class="bg-white p-6 rounded-xl border shadow-xs space-y-5">
+            <div class="border-b pb-4">
+              <h3 class="text-base font-bold">💾 Backup / Restore</h3>
+              <p class="text-xs text-slate-500 mt-1">तपाईंको सबै डाटा सुरक्षित राख्नुहोस्। नियमित रूपमा Backup लिनुहोस्।</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <p class="text-xs font-semibold text-blue-700 uppercase">कुल शिक्षक</p>
+                <h3 id="backupTeacherCount" class="text-2xl font-bold text-blue-900 mt-1">० जना</h3>
+              </div>
+              <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                <p class="text-xs font-semibold text-emerald-700 uppercase">Data Size</p>
+                <h3 id="backupDataSize" class="text-2xl font-bold text-emerald-900 mt-1">० KB</h3>
+              </div>
+              <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                <p class="text-xs font-semibold text-amber-700 uppercase">Last Saved</p>
+                <h3 id="backupLastSaved" class="text-sm font-bold text-amber-900 mt-1">कहिल्यै छैन</h3>
+              </div>
+            </div>
+
+            <div class="border-t pt-5">
+              <h4 class="text-sm font-bold mb-3 flex items-center">
+                <span class="w-1.5 h-4 bg-emerald-600 rounded mr-2"></span>
+                📤 Export (Backup लिनुहोस्)
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="exportJSON()" class="p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold flex flex-col items-center space-y-1">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  <span>JSON Backup</span>
+                  <span class="text-[10px] opacity-80">पूरा डाटा (Recommended)</span>
+                </button>
+                <button onclick="exportExcelComplete()" class="p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex flex-col items-center space-y-1">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  <span>Excel Backup</span>
+                  <span class="text-[10px] opacity-80">Spreadsheet मा</span>
+                </button>
+                <button onclick="exportPDFReport()" class="p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold flex flex-col items-center space-y-1">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                  <span>PDF Report</span>
+                  <span class="text-[10px] opacity-80">प्रिन्टको लागि</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="border-t pt-5">
+              <h4 class="text-sm font-bold mb-3 flex items-center">
+                <span class="w-1.5 h-4 bg-amber-600 rounded mr-2"></span>
+                📥 Import (Backup फिर्ता ल्याउनुहोस्)
+              </h4>
+              <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div class="flex items-start space-x-2">
+                  <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  <div class="text-xs text-amber-800">
+                    <p class="font-bold mb-1">⚠️ सावधानी</p>
+                    <p>Import गर्दा तपाईंको हालको सबै डाटा मेटिन्छ। पहिले Export गरेर राख्नुहोस्।</p>
+                  </div>
+                </div>
+                <label class="block">
+                  <input type="file" id="restoreFile" accept=".json" class="hidden" onchange="handleRestoreFile(event)">
+                  <button onclick="document.getElementById('restoreFile').click()" class="w-full p-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold">📁 JSON Backup फाइल छान्नुहोस्</button>
+                </label>
+              </div>
+            </div>
+
+            <div class="border-t pt-5">
+              <h4 class="text-sm font-bold mb-3 flex items-center text-rose-700">
+                <span class="w-1.5 h-4 bg-rose-600 rounded mr-2"></span>
+                ⚠️ Danger Zone
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onclick="resetAllData()" class="p-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-sm font-semibold">🗑️ सबै डाटा मेट्नुहोस् (Settings बाहेक)</button>
+                <button onclick="factoryReset()" class="p-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold">💥 Factory Reset (पूरा मेट्नुहोस्)</button>
+              </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <p class="text-xs font-bold text-blue-800 mb-1">ℹ️ Auto-Save सक्रिय</p>
+              <p class="text-xs text-blue-700">तपाईंले गर्नुभएको हरेक परिवर्तन स्वतः LocalStorage मा Save हुन्छ। Manual Backup पनि लिन सक्नुहुन्छ।</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- नयाँ शिक्षक मोडल -->
+  <div id="newTeacherModal" class="no-print fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b">
+        <h3 class="text-base font-bold" id="modalTitle">शिक्षक विवरण</h3>
+        <button onclick="closeNewTeacherModal()" class="text-slate-400 text-lg font-bold">&times;</button>
+      </div>
+      <input type="hidden" id="modalTeacherId" value="">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div><label class="block font-semibold mb-1">नाम (नेपाली) *</label><input type="text" id="modalName" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">NAME IN ENGLISH</label><input type="text" id="modalNameEn" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">योग्यता</label><input type="text" id="modalQual" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">दर्जा</label><select id="modalRank" onchange="applySalaryScale()" class="w-full border rounded-lg p-2 outline-none bg-blue-50"></select></div>
+        <div><label class="block font-semibold mb-1">पद</label><select id="modalPost" class="w-full border rounded-lg p-2 outline-none"><option value="शिक्षक">शिक्षक</option><option value="प्र.अ.">प्र.अ.</option><option value="कर्मचारी">कर्मचारी</option></select></div>
+        <div><label class="block font-semibold mb-1">लिङ्ग</label><select id="modalGender" class="w-full border rounded-lg p-2 outline-none"><option value="महिला">महिला (छुट सहित)</option><option value="महिला (छुट बाहेक)">महिला (छुट बाहेक)</option><option value="पुरुष">पुरुष</option></select></div>
+        <div><label class="block font-semibold mb-1">नियुक्ति</label><select id="modalAppType" class="w-full border rounded-lg p-2 outline-none" onchange="togglePermanentFields()"><option value="स्थायी">स्थायी</option><option value="अस्थायी (करार)">अस्थायी (करार)</option><option value="राहत">राहत</option><option value="श्रेणीविहिन">श्रेणीविहिन</option></select></div>
+        <div><label class="block font-semibold mb-1">संकेत नं.</label><input type="text" id="modalCode" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">तलब स्केल *</label><input type="number" id="modalScale" value="48058" class="w-full border rounded-lg p-2 outline-none font-bold text-blue-700"></div>
+        <div><label class="block font-semibold mb-1">ग्रेड संख्या</label><input type="number" id="modalGradeCount" value="0" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">ग्रेड दर</label><input type="number" id="modalGradeRate" value="1602" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">बिमा?</label><select id="modalBimaEligible" class="w-full border rounded-lg p-2 outline-none"><option value="Yes">Yes</option><option value="No">No</option></select></div>
+        <div><label class="block font-semibold mb-1">बिमा ID</label><input type="text" id="modalBimaCard" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">क.सं.कोष नं.</label><input type="text" id="modalEpfNo" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">क.सं.कोष %</label><input type="number" id="modalEpfPercent" value="10" class="w-full border rounded-lg p-2 outline-none font-bold text-blue-700"></div>
+        <div><label class="block font-semibold mb-1">ना.ल.कोष नं.</label><input type="text" id="modalCitNo" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div class="border rounded-lg p-2 bg-slate-50"><label class="block font-semibold mb-1">ना.ल.को. कट्टी</label>
+          <div class="flex space-x-2">
+            <select id="modalCitType" class="w-1/2 border rounded p-1.5 outline-none"><option value="percent">%</option><option value="amount">रकम</option></select>
+            <input type="number" id="modalCitVal" value="0" class="w-1/2 border rounded p-1.5 outline-none">
+          </div>
+        </div>
+        <div><label class="block font-semibold mb-1">PAN</label><input type="text" id="modalPan" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">बैंक खाता</label><input type="text" id="modalAccount" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">महंगी भत्ता</label><input type="number" id="modalMahangi" value="5000" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">प्र.अ. भत्ता</label><input type="number" id="modalHt" value="0" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">स्थानीय भत्ता</label><input type="number" id="modalLocal" value="0" class="w-full border rounded-lg p-2 outline-none"></div>
+        <div><label class="block font-semibold mb-1">प्रोत्साहन भत्ता</label><input type="number" id="modalIncentive" value="0" class="w-full border rounded-lg p-2 outline-none"></div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-3 border-t">
+        <button onclick="closeNewTeacherModal()" class="px-4 py-2 border rounded-lg text-xs font-semibold">रद्द</button>
+        <button onclick="saveTeacher()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">सुरक्षित</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup Modal -->
+  <div id="backupModal" class="no-print fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b">
+        <h3 class="text-base font-bold">💾 Data Management</h3>
+        <button onclick="closeBackupModal()" class="text-slate-400 text-lg font-bold">&times;</button>
+      </div>
+      <div class="space-y-3">
+        <button onclick="exportJSON();closeBackupModal()" class="w-full p-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-200 rounded-xl text-left">
+          <p class="font-bold text-sm">📥 JSON Backup Export</p>
+          <p class="text-xs text-emerald-600 mt-1">पूरा डाटा फाइलमा सुरक्षित गर्नुहोस्</p>
+        </button>
+        <button onclick="openRestoreDialog()" class="w-full p-4 bg-amber-50 hover:bg-amber-100 text-amber-800 border-2 border-amber-200 rounded-xl text-left">
+          <p class="font-bold text-sm">📤 JSON Backup Restore</p>
+          <p class="text-xs text-amber-600 mt-1">पहिले लिएको Backup फिर्ता ल्याउनुहोस्</p>
+        </button>
+        <button onclick="exportExcelComplete();closeBackupModal()" class="w-full p-4 bg-blue-50 hover:bg-blue-100 text-blue-800 border-2 border-blue-200 rounded-xl text-left">
+          <p class="font-bold text-sm">📊 Excel Export</p>
+          <p class="text-xs text-blue-600 mt-1">शिक्षक डाटा Excel मा Export</p>
+        </button>
+      </div>
+      <div class="flex justify-end pt-3 border-t">
+        <button onclick="closeBackupModal()" class="px-4 py-2 border rounded-lg text-xs font-semibold">बन्द गर्नुहोस्</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Indicator -->
+  <div id="saveIndicator" class="save-indicator">✅ Saved</div>
+
+  <script>
+    // ==================== CONSTANTS ====================
+    const STORAGE_KEY = 'school_payroll_data_v1';
+    const AUTH_KEY = 'school_payroll_auth';
+    const BACKUP_KEY = 'school_payroll_backup';
+    const APP_VERSION = '1.0.0';
+
+    // Default credentials (पहिलो पटक)
+    const DEFAULT_USER = { username: 'admin', password: 'admin123' };
+
+    // ==================== STATE ====================
+    window.appData = {
+      version: APP_VERSION,
+      schoolData: {
+        schoolId: "", name: "", nameEn: "", code: "", address: "", addressEn: "",
+        province: "", district: "", municipality: "", ward: "", phone: "", email: "",
+        principal: "", accountOfficer: "", bankName: "", bankBranch: "", bankAddress: "",
+        patraSankhya: "", chalanNumber: "", logoData: "", teachers: []
+      },
+      salarySettingsData: {
+        "मा. शि. प्र.": { basic: 61830, gradeRate: 2061 },
+        "मा. शि. द्वि.": { basic: 53610, gradeRate: 1787 },
+        "मा. शि. तृ.": { basic: 48058, gradeRate: 1602 },
+        "नि. मा. शि. प्र.": { basic: 53610, gradeRate: 1787 },
+        "नि. मा. शि. द्वि.": { basic: 48058, gradeRate: 1602 },
+        "नि. मा. शि. तृ.": { basic: 38203, gradeRate: 1273 },
+        "प्रा. शि. प्र.": { basic: 48058, gradeRate: 1602 },
+        "प्रा. शि. द्वि.": { basic: 38203, gradeRate: 1273 },
+        "प्रा. शि. तृ.": { basic: 36199, gradeRate: 1206 },
+        "श्रेणीविहिन": { basic: 26000, gradeRate: 867 },
+        "अन्य": { basic: 0, gradeRate: 0 }
+      },
+      settings: {
+        fiscalYear: "२०८३/०८४",
+        fromMonth: 4,
+        toMonth: 6,
+        festivalOption: "festival",
+        dressAmount: 5000,
+        bankLetterDate: "२०८३/०६/३०"
+      },
+      lastSaved: null,
+      createdAt: null
+    };
+
+    window.schoolData = window.appData.schoolData;
+    window.salarySettingsData = window.appData.salarySettingsData;
+
+    window.activeTab = "dashboard";
+    window.parsedImportTeachers = [];
+    window.currentPeriodMonths = 3;
+    window.schoolInfoEditMode = false;
+    window.selectedTeacherIds = new Set();
+    window.selectedReportIds = new Set();
+    window.nepaliMonths = ['बैशाख','जेठ','असार','साउन','भदौ','असोज','कात्तिक','मंसिर','पुष','माघ','फागुन','चैत'];
+    window.autoSaveTimer = null;
+    window.saveIndicatorTimer = null;
+
+    // ==================== LOCAL STORAGE ====================
+    function saveToLocal(showIndicator) {
+      try {
+        window.appData.schoolData = window.schoolData;
+        window.appData.salarySettingsData = window.salarySettingsData;
+        window.appData.settings = {
+          fiscalYear: document.getElementById('calcFiscalYear')?.value || '२०८३/०८४',
+          fromMonth: parseInt(document.getElementById('calcFromMonth')?.value) || 4,
+          toMonth: parseInt(document.getElementById('calcToMonth')?.value) || 6,
+          festivalOption: document.getElementById('calcFestivalOption')?.value || 'festival',
+          dressAmount: parseFloat(document.getElementById('calcDressAmount')?.value) || 5000,
+          bankLetterDate: document.getElementById('bankLetterDate')?.value || '२०८३/०६/३०'
+        };
+        window.appData.lastSaved = new Date().toISOString();
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.appData));
+        
+        if (showIndicator !== false) {
+          showSaveIndicator();
+        }
+        updateBackupInfo();
+      } catch(e) {
+        console.error('Save error:', e);
+        showToast('❌ Save समस्या: ' + e.message);
+      }
+    }
+
+    function loadFromLocal() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          window.appData.createdAt = new Date().toISOString();
+          return false;
+        }
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.schoolData) window.schoolData = { ...window.schoolData, ...parsed.schoolData };
+          if (parsed.salarySettingsData && Object.keys(parsed.salarySettingsData).length > 0) {
+            window.salarySettingsData = parsed.salarySettingsData;
+          }
+          if (parsed.settings) window.appData.settings = { ...window.appData.settings, ...parsed.settings };
+          if (parsed.lastSaved) window.appData.lastSaved = parsed.lastSaved;
+          if (parsed.createdAt) window.appData.createdAt = parsed.createdAt;
+          window.appData.schoolData = window.schoolData;
+          window.appData.salarySettingsData = window.salarySettingsData;
+          return true;
+        }
+      } catch(e) {
+        console.error('Load error:', e);
+      }
+      return false;
+    }
+
+    function showSaveIndicator() {
+      const el = document.getElementById('saveIndicator');
+      el.classList.add('show');
+      clearTimeout(window.saveIndicatorTimer);
+      window.saveIndicatorTimer = setTimeout(() => el.classList.remove('show'), 1500);
+    }
+
+    function autoSave() {
+      clearTimeout(window.autoSaveTimer);
+      window.autoSaveTimer = setTimeout(() => saveToLocal(true), 500);
+    }
+
+    window.manualSave = function() {
+      saveToLocal(true);
+      showToast('✅ डाटा Save भयो');
+    };
+
+    // ==================== AUTH ====================
+    window.doLogin = function() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      const errEl = document.getElementById('loginError');
+
+      let storedUser = DEFAULT_USER;
+      try {
+        const storedCreds = localStorage.getItem('school_payroll_creds');
+        if (storedCreds) storedUser = JSON.parse(storedCreds);
+      } catch(e) {}
+
+      if (username === storedUser.username && password === storedUser.password) {
+        sessionStorage.setItem(AUTH_KEY, 'true');
+        errEl.classList.add('hidden');
+        showApp();
+      } else {
+        errEl.textContent = '❌ Username वा Password मिलेन।';
+        errEl.classList.remove('hidden');
+      }
+    };
+
+    window.logoutUser = function() {
+      if (!confirm('लगआउट गर्न चाहनुहुन्छ?')) return;
+      saveToLocal(false);
+      sessionStorage.removeItem(AUTH_KEY);
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('loginUsername').value = '';
+      document.getElementById('loginPassword').value = '';
+    };
+
+    function showApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+      initApp();
+    }
+
+    // ==================== INIT ====================
+    function initApp() {
+      loadFromLocal();
+      
+      const s = window.appData.settings;
+      if (document.getElementById('calcFiscalYear')) document.getElementById('calcFiscalYear').value = s.fiscalYear;
+      if (document.getElementById('calcFromMonth')) document.getElementById('calcFromMonth').value = s.fromMonth;
+      if (document.getElementById('calcToMonth')) document.getElementById('calcToMonth').value = s.toMonth;
+      if (document.getElementById('calcFestivalOption')) document.getElementById('calcFestivalOption').value = s.festivalOption;
+      if (document.getElementById('calcDressAmount')) document.getElementById('calcDressAmount').value = s.dressAmount;
+      if (document.getElementById('bankLetterDate')) document.getElementById('bankLetterDate').value = s.bankLetterDate;
+
+      updatePeriodMonths();
+      renderApp();
+      renderSalarySettings();
+      updateRankDropdown();
+      setupEventListeners();
+      updateBackupInfo();
+    }
+
+    function setupEventListeners() {
+      document.addEventListener('input', function(e) {
+        if (e.target.closest('#mainApp')) {
+          autoSave();
+        }
+      });
+      document.addEventListener('change', function(e) {
+        if (e.target.closest('#mainApp')) {
+          autoSave();
+        }
+      });
+    }
+
+    // ==================== HELPERS ====================
+    window.showToast = function(message) {
+      var toast = document.getElementById('toastNotification');
+      var msgEl = document.getElementById('toastMessage');
+      if (msgEl) msgEl.textContent = message;
+      if (toast) {
+        toast.classList.remove('translate-y-[-120%]', 'opacity-0', 'pointer-events-none');
+        setTimeout(function() { toast.classList.add('translate-y-[-120%]', 'opacity-0', 'pointer-events-none'); }, 3000);
+      }
+    };
+
+    window.updatePeriodMonths = function() {
+      try {
+        var from = parseInt(document.getElementById('calcFromMonth').value);
+        var to = parseInt(document.getElementById('calcToMonth').value);
+        var months = to - from + 1;
+        if (months <= 0) months = 12 + months;
+        window.currentPeriodMonths = months;
+        document.getElementById('calcPeriodDisplay').value = months + ' महिना';
+        var fromName = window.nepaliMonths[from - 1];
+        var toName = window.nepaliMonths[to - 1];
+        var periodText = (from === to) ? (fromName + ' महिना') : (fromName + ' देखि ' + toName + ' सम्म');
+        var el = document.getElementById('printPeriodText');
+        if (el) el.textContent = periodText + ' (' + months + ' महिना)';
+        var bankDateInput = document.getElementById('bankLetterDate');
+        if (bankDateInput) bankDateInput.value = getLastDayOfPeriod().replace(/\./g, '/');
+        autoSave();
+      } catch(e) { console.error(e); }
+    };
+
+    window.getPeriodText = function() {
+      try {
+        var from = parseInt(document.getElementById('calcFromMonth').value);
+        var to = parseInt(document.getElementById('calcToMonth').value);
+        var fromName = window.nepaliMonths[from - 1];
+        var toName = window.nepaliMonths[to - 1];
+        if (from === to) return fromName + ' महिना';
+        return fromName + ' देखि ' + toName + ' सम्म';
+      } catch(e) { return ''; }
+    };
+
+    window.getLastDayOfPeriod = function() {
+      try {
+        var to = parseInt(document.getElementById('calcToMonth').value);
+        var fiscalYear = document.getElementById('calcFiscalYear').value;
+        var yearNum = fiscalYear.split('/')[0];
+        return yearNum + '.' + String(to).padStart(2, '0') + '.30';
+      } catch(e) { return '२०८३.०६.३०'; }
+    };
+
+    // ==================== CALCULATE ====================
+    window.calculateTeacherSalary = function(t, periodMonths, festivalOption, dressAmount) {
+      periodMonths = periodMonths || 3;
+      festivalOption = festivalOption || 'festival';
+      dressAmount = dressAmount || 5000;
+      
+      var gradeCount = Number(t.gradeCount) || 0;
+      var gradeRate = Number(t.gradeRate) || 0;
+      var scale = Number(t.scale) || 0;
+      var gradeAmount = Math.round(gradeCount * gradeRate);
+      var gradeInclusiveBasic = Math.round(scale + gradeAmount);
+      var isPermanent = (t.appType || '').trim() === 'स्थायी';
+      var hasBima = (t.bima === 'Yes' || t.bima === true) && t.scale > 30000;
+      var daysWorked = Number(t.partialDays !== undefined ? t.partialDays : 30);
+      var daysRatio = daysWorked / 30;
+      var epfAdd = isPermanent ? Math.round(gradeInclusiveBasic * 0.10 * 100) / 100 : 0;
+      var insAdd = hasBima ? 400.00 : 0;
+      var incAdd = Number(t.incentive || 0);
+      var ht = Number(t.ht || 0);
+      var mahangi = Number(t.mahangi !== undefined ? t.mahangi : 5000);
+      var local = Number(t.local || 0);
+      var monthlyGrossRaw = Math.round((gradeInclusiveBasic + epfAdd + insAdd + incAdd + ht + mahangi + local) * 100) / 100;
+      var monthlyGross = Math.round((monthlyGrossRaw * daysRatio) * 100) / 100;
+      
+      var epfDedMonthlyRaw = 0;
+      var epfPercent = Number(t.epfPercent) || 0;
+      if (epfPercent > 0) epfDedMonthlyRaw = Math.round((gradeInclusiveBasic * (epfPercent / 100)) * 100) / 100;
+      var epfDedMonthly = Math.round((epfDedMonthlyRaw * daysRatio) * 100) / 100;
+      
+      var citDedMonthlyRaw = 0;
+      var citVal = Number(t.citVal) || 0;
+      var citType = t.citType || (citVal > 50 ? 'amount' : 'percent');
+      if (citType === 'percent' && citVal > 0) citDedMonthlyRaw = Math.round((gradeInclusiveBasic * (citVal / 100)) * 100) / 100;
+      else citDedMonthlyRaw = citVal;
+      var citDedMonthly = Math.round((citDedMonthlyRaw * daysRatio) * 100) / 100;
+      
+      var insDedMonthlyRaw = hasBima ? 800.00 : 0;
+      var insDedMonthly = Math.round((insDedMonthlyRaw * daysRatio) * 100) / 100;
+      var periodTotalDed = Math.round(((epfDedMonthly + citDedMonthly + insDedMonthly) * periodMonths) * 100) / 100;
+      
+      var festivalAllowance = 0;
+      if (festivalOption === 'festival') festivalAllowance = Math.round((gradeInclusiveBasic * daysRatio) * 100) / 100;
+      else if (festivalOption === 'dress') festivalAllowance = dressAmount;
+      
+      var advanceDed = Number(t.advanceDed || 0);
+      var taxableGross = Math.round(((monthlyGross * periodMonths + festivalAllowance) - periodTotalDed) * 100) / 100;
+      var isFemaleWithExemption = (t.gender === 'महिला' && t.gender !== 'महिला (छुट बाहेक)');
+      var taxRate = isFemaleWithExemption ? 0.0090 : 0.0100;
+      var taxAmount = Math.round((taxableGross * taxRate) * 100) / 100;
+      var netPayable = Math.round((taxableGross - taxAmount - advanceDed) * 100) / 100;
+      
+      var result = {};
+      for (var k in t) result[k] = t[k];
+      result.gradeAmount = gradeAmount;
+      result.gradeInclusiveBasic = gradeInclusiveBasic;
+      result.epfAdd = epfAdd;
+      result.insAdd = insAdd;
+      result.incAdd = incAdd;
+      result.mahangi = mahangi;
+      result.ht = ht;
+      result.local = local;
+      result.incentive = incAdd;
+      result.monthlyGross = monthlyGross;
+      result.epfDedMonthly = epfDedMonthly;
+      result.citDedMonthly = citDedMonthly;
+      result.insDedMonthly = insDedMonthly;
+      result.periodTotalDed = periodTotalDed;
+      result.festivalAllowance = festivalAllowance;
+      result.taxableGross = taxableGross;
+      result.taxAmount = taxAmount;
+      result.advanceDed = advanceDed;
+      result.netPayable = netPayable;
+      result.daysWorked = daysWorked;
+      result.hasBima = hasBima;
+      return result;
+    };
+
+    // ==================== NAVIGATION ====================
+    window.navigateTab = function(tabId) {
+      window.activeTab = tabId;
+      document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); });
+      var el = document.getElementById('tab-' + tabId);
+      if (el) el.classList.remove('hidden');
+      document.querySelectorAll('.nav-btn').forEach(function(btn) {
+        btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+        btn.classList.add('text-slate-300', 'hover:bg-slate-800', 'hover:text-white');
+      });
+      var activeBtn = document.getElementById('btn-' + tabId);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+        activeBtn.classList.remove('text-slate-300');
+      }
+      if (tabId === 'backup') updateBackupInfo();
+    };
+
+    // ==================== RENDER APP ====================
+    window.renderApp = function() {
+      try {
+        var sd = window.schoolData;
+        var period = window.currentPeriodMonths;
+        var festEl = document.getElementById('calcFestivalOption');
+        var dressEl = document.getElementById('calcDressAmount');
+        var festivalOpt = festEl ? festEl.value : 'festival';
+        var dressAmt = dressEl ? (parseFloat(dressEl.value) || 5000) : 5000;
+
+        var headerName = document.getElementById('headerSchoolName');
+        if (headerName) headerName.textContent = sd.name || 'विद्यालय';
+        var headerCode = document.getElementById('headerSchoolCode');
+        if (headerCode) headerCode.textContent = 'EMIS: ' + (sd.code || '-');
+        var headerAddr = document.getElementById('headerSchoolAddress');
+        if (headerAddr) headerAddr.textContent = sd.address || '';
+        var printSchoolName = document.getElementById('printSchoolName');
+        if (printSchoolName) printSchoolName.textContent = sd.name || '';
+        var sidebarCount = document.getElementById('sidebarTeacherCount');
+        if (sidebarCount) sidebarCount.textContent = (sd.teachers || []).length;
+        var sidebarSchoolName = document.getElementById('sidebarSchoolName');
+        if (sidebarSchoolName) sidebarSchoolName.textContent = sd.name || 'विद्यालय नाम';
+
+        var hasData = (sd.teachers || []).length > 0;
+        var dashEmpty = document.getElementById('dashboardEmptyState');
+        if (dashEmpty) dashEmpty.classList.toggle('hidden', hasData);
+        var empEmpty = document.getElementById('employeeEmptyState');
+        if (empEmpty) empEmpty.classList.toggle('hidden', hasData);
+        var empWrapper = document.getElementById('employeeTableWrapper');
+        if (empWrapper) empWrapper.classList.toggle('hidden', !hasData);
+
+        var calculatedList = (sd.teachers || []).map(function(t) { return calculateTeacherSalary(t, period, festivalOpt, dressAmt); });
+
+        var totalGrossAll = 0, totalDedAll = 0, totalTaxAll = 0, totalNetAll = 0;
+        calculatedList.forEach(function(item) {
+          totalGrossAll += item.monthlyGross;
+          totalDedAll += item.periodTotalDed;
+          totalTaxAll += item.taxAmount;
+          totalNetAll += item.netPayable;
+        });
+
+        var statEmp = document.getElementById('statTotalEmployees');
+        if (statEmp) statEmp.textContent = (sd.teachers || []).length + ' जना';
+        var statNet = document.getElementById('statNetPayable');
+        if (statNet) statNet.textContent = 'रू. ' + totalNetAll.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '/-';
+        var statDed = document.getElementById('statTotalDeduction');
+        if (statDed) statDed.textContent = 'रू. ' + totalDedAll.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '/-';
+        var statTax = document.getElementById('statTotalTax');
+        if (statTax) statTax.textContent = 'रू. ' + totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '/-';
+
+        var quickTbody = document.getElementById('dashboardQuickTable');
+        if (quickTbody) {
+          quickTbody.innerHTML = '';
+          if (calculatedList.length === 0) {
+            quickTbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400 text-xs">कुनै डाटा छैन।</td></tr>';
+          } else {
+            calculatedList.slice(0, 10).forEach(function(t, idx) {
+              var tr = document.createElement('tr');
+              tr.innerHTML = '<td class="p-2.5 font-mono">' + (idx + 1) + '</td><td class="p-2.5 font-bold">' + t.name + '</td><td class="p-2.5">' + (t.rank || '-') + '</td><td class="p-2.5 text-right font-mono">' + t.monthlyGross.toFixed(2) + '</td><td class="p-2.5 text-right font-mono font-bold text-emerald-700">' + t.netPayable.toFixed(2) + '</td>';
+              quickTbody.appendChild(tr);
+            });
+          }
+        }
+
+        var masterTbody = document.getElementById('employeeMasterTableBody');
+        if (masterTbody) {
+          masterTbody.innerHTML = '';
+          (sd.teachers || []).forEach(function(t, idx) {
+            var isChecked = window.selectedTeacherIds.has(t.id);
+            var tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50/80 ' + (isChecked ? 'bg-blue-50' : '');
+            var genderClass = t.gender === 'महिला' ? 'bg-pink-100 text-pink-700' : (t.gender === 'महिला (छुट बाहेक)' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700');
+            var bimaCell = t.bima === 'Yes' ? '<span class="text-emerald-700 font-semibold">✓ Yes</span><br><span class="text-[10px] text-slate-400 font-mono">' + (t.bimaCard || '') + '</span>' : '<span class="text-slate-400">No</span>';
+            
+            tr.innerHTML = '<td class="p-2.5 text-center"><input type="checkbox" class="w-4 h-4 rounded accent-blue-600" ' + (isChecked ? 'checked' : '') + ' onchange="toggleTeacherSelection(' + t.id + ', this.checked)"></td>' +
+              '<td class="p-2.5 font-mono text-slate-500">' + (idx + 1) + '</td>' +
+              '<td class="p-2.5 font-bold"><div>' + t.name + '</div><div class="text-[10px] text-slate-500 font-normal">' + (t.nameEn || '-') + '</div></td>' +
+              '<td class="p-2.5 text-slate-600">' + (t.qual || '-') + '</td>' +
+              '<td class="p-2.5 font-medium">' + (t.rank || '-') + ' (' + (t.post || 'शिक्षक') + ')</td>' +
+              '<td class="p-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-semibold ' + genderClass + '">' + t.gender + '</span></td>' +
+              '<td class="p-2.5 text-slate-600">' + (t.appType || '-') + '</td>' +
+              '<td class="p-2.5 font-mono font-semibold">' + (t.code || '-') + '</td>' +
+              '<td class="p-2.5 text-right font-mono">' + Number(t.scale || 0).toLocaleString('en-IN') + '</td>' +
+              '<td class="p-2.5 text-center font-mono">' + (t.gradeCount || 0) + '</td>' +
+              '<td class="p-2.5 text-right font-mono">' + (t.gradeRate || 0) + '</td>' +
+              '<td class="p-2.5 text-center">' + bimaCell + '</td>' +
+              '<td class="p-2.5 font-mono"><div>' + (t.epfNo || '-') + '</div><div class="text-[10px] text-slate-400">' + (t.epfPercent ? t.epfPercent + '%' : '-') + '</div></td>' +
+              '<td class="p-2.5 font-mono"><div>' + (t.citNo || '-') + '</div><div class="text-[10px] text-slate-400">' + (t.citVal ? t.citVal + (t.citType === 'amount' ? ' (रू)' : '%') : '-') + '</div></td>' +
+              '<td class="p-2.5 font-mono text-slate-600">' + (t.pan || '-') + '</td>' +
+              '<td class="p-2.5 font-mono text-slate-600">' + (t.account || '-') + '</td>' +
+              '<td class="p-2.5 text-right font-mono">' + (t.ht || 0) + '</td>' +
+              '<td class="p-2.5 text-right font-mono">' + (t.local || 0) + '</td>' +
+              '<td class="p-2.5 text-right font-mono">' + (t.incentive || 0) + '</td>' +
+              '<td class="p-2.5 text-center whitespace-nowrap"><button onclick="editTeacher(' + t.id + ')" class="text-blue-600 text-xs mr-2 border border-blue-200 bg-blue-50 px-2 py-1 rounded">सच्याउने</button><button onclick="removeTeacher(' + t.id + ')" class="text-rose-600 text-xs border border-rose-200 bg-rose-50 px-2 py-1 rounded">हटाउने</button></td>';
+            masterTbody.appendChild(tr);
+          });
+        }
+
+        updateSelectionUI();
+
+        var calcTbody = document.getElementById('calculationResultTable');
+        if (calcTbody) {
+          calcTbody.innerHTML = '';
+          if (calculatedList.length === 0) {
+            calcTbody.innerHTML = '<tr><td colspan="9" class="p-4 text-center text-slate-400 text-xs">कुनै डाटा छैन।</td></tr>';
+          } else {
+            calculatedList.forEach(function(t, idx) {
+              var tr = document.createElement('tr');
+              tr.innerHTML = '<td class="p-2.5">' + (idx + 1) + '</td><td class="p-2.5 font-bold">' + t.name + '</td><td class="p-2.5 text-right font-mono">' + t.gradeInclusiveBasic.toFixed(2) + '</td><td class="p-2.5 text-right font-mono">' + t.monthlyGross.toFixed(2) + '</td><td class="p-2.5 text-right font-mono">' + (t.epfDedMonthly + t.citDedMonthly + t.insDedMonthly).toFixed(2) + '</td><td class="p-2.5 text-right font-mono font-semibold text-amber-800">' + t.periodTotalDed.toFixed(2) + '</td><td class="p-2.5 text-right font-mono">' + t.festivalAllowance.toFixed(2) + '</td><td class="p-2.5 text-right font-mono text-purple-700">' + t.taxAmount.toFixed(2) + '</td><td class="p-2.5 text-right font-mono font-bold text-emerald-700">' + t.netPayable.toFixed(2) + '</td>';
+              calcTbody.appendChild(tr);
+            });
+          }
+        }
+
+        renderReportCheckboxes();
+        renderOfficialTable(calculatedList, period);
+        renderAdvanceTab();
+        renderPartialDaysTab();
+        renderEPFTab(calculatedList, period);
+        renderInsuranceTab(calculatedList, period);
+        renderCITTab(calculatedList, period);
+        renderTaxTab(calculatedList, period);
+        renderBankLetter(calculatedList, period);
+        renderSchoolInfo();
+        renderSalarySettings();
+        
+      } catch(e) { console.error('renderApp:', e); }
+    };
+
+    window.renderReportCheckboxes = function() {
+      var el = document.getElementById('reportTeacherCheckboxes');
+      if (!el) return;
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) {
+        el.innerHTML = '<p class="text-xs text-slate-400 col-span-full">कुनै शिक्षक डाटा छैन।</p>';
+        return;
+      }
+      var html = '';
+      teachers.forEach(function(t) {
+        var checked = window.selectedReportIds.has(t.id) ? 'checked' : '';
+        html += '<label class="flex items-center space-x-2 bg-white p-2 rounded border cursor-pointer hover:bg-blue-50"><input type="checkbox" class="w-4 h-4 rounded accent-blue-600" ' + checked + ' onchange="toggleReportTeacher(' + t.id + ', this.checked)"><span class="text-xs font-medium truncate">' + t.name + '</span></label>';
+      });
+      el.innerHTML = html;
+    };
+
+    window.toggleReportTeacher = function(id, checked) {
+      if (checked) window.selectedReportIds.add(id);
+      else window.selectedReportIds.delete(id);
+      renderReportCheckboxes();
+      var list = (window.schoolData.teachers || []).map(function(t) { return calculateTeacherSalary(t, window.currentPeriodMonths, 'festival', 5000); });
+      renderOfficialTable(list, window.currentPeriodMonths);
+      renderBankLetter(list, window.currentPeriodMonths);
+    };
+
+    window.selectAllReportTeachers = function() {
+      (window.schoolData.teachers || []).forEach(function(t) { window.selectedReportIds.add(t.id); });
+      renderReportCheckboxes();
+      var list = (window.schoolData.teachers || []).map(function(t) { return calculateTeacherSalary(t, window.currentPeriodMonths, 'festival', 5000); });
+      renderOfficialTable(list, window.currentPeriodMonths);
+      renderBankLetter(list, window.currentPeriodMonths);
+    };
+
+    window.deselectAllReportTeachers = function() {
+      window.selectedReportIds.clear();
+      renderReportCheckboxes();
+      renderOfficialTable([], window.currentPeriodMonths);
+      renderBankLetter([], window.currentPeriodMonths);
+    };
+
+    window.toggleTeacherSelection = function(id, checked) {
+      if (checked) window.selectedTeacherIds.add(id);
+      else window.selectedTeacherIds.delete(id);
+      updateSelectionUI();
+    };
+
+    window.toggleSelectAll = function(checkbox) {
+      if (checkbox.checked) (window.schoolData.teachers || []).forEach(function(t) { window.selectedTeacherIds.add(t.id); });
+      else window.selectedTeacherIds.clear();
+      renderApp();
+    };
+
+    window.updateSelectionUI = function() {
+      var count = window.selectedTeacherIds.size;
+      var badge = document.getElementById('selectedCountBadge');
+      var btn = document.getElementById('deleteSelectedBtn');
+      var selectAll = document.getElementById('selectAllTeachers');
+      if (badge) { if (count > 0) { badge.textContent = count + ' जना'; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+      if (btn) { if (count > 0) btn.classList.remove('hidden'); else btn.classList.add('hidden'); }
+      if (selectAll) selectAll.checked = (window.schoolData.teachers || []).length > 0 && count === (window.schoolData.teachers || []).length;
+    };
+
+    window.deleteSelectedTeachers = function() {
+      var count = window.selectedTeacherIds.size;
+      if (count === 0) { showToast("कुनै छानिएको छैन।"); return; }
+      if (!confirm(count + ' जना हटाउने?')) return;
+      window.schoolData.teachers = (window.schoolData.teachers || []).filter(function(t) { return !window.selectedTeacherIds.has(t.id); });
+      window.selectedTeacherIds.clear();
+      showToast(count + ' जना हटाइयो।');
+      renderApp();
+      autoSave();
+    };
+
+    window.deleteAllTeachers = function() {
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) { showToast("कुनै शिक्षक छैन।"); return; }
+      if (!confirm('सबै ' + teachers.length + ' जना हटाउने?')) return;
+      window.schoolData.teachers = [];
+      window.selectedTeacherIds.clear();
+      window.selectedReportIds.clear();
+      showToast("सबै हटाइयो।");
+      renderApp();
+      autoSave();
+    };
+
+    window.renderOfficialTable = function(fullList, period) {
+      var list = fullList.filter(function(t) { return window.selectedReportIds.has(t.id); });
+      var tbody = document.getElementById('officialSalaryRequisitionBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="29" class="border p-4 text-center text-slate-400 text-xs">कुनै शिक्षक छानिएको छैन।</td></tr>';
+        return;
+      }
+      list.forEach(function(t, idx) {
+        var tr = document.createElement('tr');
+        tr.className = 'text-[10px]';
+        tr.innerHTML = '<td class="border p-0.5 text-center font-mono font-bold bg-yellow-50">' + (idx + 1) + '</td><td class="border p-0.5 font-bold">' + t.name + '</td><td class="border p-0.5">' + (t.rank || '-') + '</td><td class="border p-0.5 text-right font-mono">' + t.scale + '</td><td class="border p-0.5 text-center font-mono">' + t.gradeCount + '</td><td class="border p-0.5 text-right font-mono">' + t.gradeAmount + '</td><td class="border p-0.5 text-right font-mono font-semibold">' + t.gradeInclusiveBasic + '</td><td class="border p-0.5 text-right font-mono">' + t.epfAdd + '</td><td class="border p-0.5 text-right font-mono">' + t.insAdd + '</td><td class="border p-0.5 text-right font-mono">' + t.incAdd + '</td><td class="border p-0.5 text-right font-mono">' + t.mahangi + '</td><td class="border p-0.5 text-right font-mono">' + t.ht + '</td><td class="border p-0.5 text-right font-mono">' + t.local + '</td><td class="border p-0.5 text-right font-mono">' + t.incentive + '</td><td class="border p-0.5 text-right font-mono font-bold bg-slate-50">' + t.monthlyGross.toFixed(2) + '</td><td class="border p-0.5 text-right font-mono">' + t.epfDedMonthly + '</td><td class="border p-0.5 text-right font-mono">' + t.citDedMonthly + '</td><td class="border p-0.5 text-right font-mono">' + t.insDedMonthly + '</td><td class="border p-0.5 text-right font-mono">' + (t.epfDedMonthly * period).toFixed(1) + '</td><td class="border p-0.5 text-right font-mono">' + (t.citDedMonthly * period).toFixed(1) + '</td><td class="border p-0.5 text-right font-mono">' + (t.insDedMonthly * period).toFixed(1) + '</td><td class="border p-0.5 text-right font-mono font-bold bg-amber-50">' + t.periodTotalDed.toFixed(1) + '</td><td class="border p-0.5 text-right font-mono">' + t.festivalAllowance + '</td><td class="border p-0.5 text-right font-mono">' + t.taxableGross.toFixed(1) + '</td><td class="border p-0.5 text-right font-mono text-purple-900 font-semibold">' + t.taxAmount.toFixed(2) + '</td><td class="border p-0.5 text-right font-mono font-bold">' + t.advanceDed.toFixed(2) + '</td><td class="border p-0.5 text-right font-mono font-extrabold bg-yellow-100">' + t.netPayable.toFixed(2) + '</td><td class="border p-0.5 bg-blue-50"></td>';
+        tbody.appendChild(tr);
+      });
+    };
+
+    // ==================== EXCEL EXPORTS ====================
+    window.exportReportToExcel = function() {
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) { showToast("कुनै डाटा छैन।"); return; }
+      var period = window.currentPeriodMonths;
+      var list = teachers.map(function(t) { return calculateTeacherSalary(t, period, 'festival', 5000); }).filter(function(t) { return window.selectedReportIds.has(t.id); });
+      if (list.length === 0) { showToast("कुनै छानिएको छैन।"); return; }
+      var rows = [['SN', 'नाम', 'दर्जा', 'तलब स्केल', 'ग्रेड', 'ग्रेड रकम', 'जम्मा', 'क.सं.को', 'बिमा', 'प्रोत्साहन', 'महंगी', 'प्र.अ.', 'स्थानीय', 'प्रोत्साहन भत्ता', 'मासिक कुल', 'क.सं.को', 'ना.ल.को', 'बिमा', 'क.सं.को अवधि', 'ना.ल.को अवधि', 'बिमा अवधि', 'जम्मा कट्टी', 'चाडपर्व', 'कर सहित', 'सा.सु. कर', 'पेश्की', 'खुद']];
+      list.forEach(function(t, idx) {
+        rows.push([idx + 1, t.name, t.rank, t.scale, t.gradeCount, t.gradeAmount, t.gradeInclusiveBasic, t.epfAdd, t.insAdd, t.incAdd, t.mahangi, t.ht, t.local, t.incentive, t.monthlyGross.toFixed(2), t.epfDedMonthly, t.citDedMonthly, t.insDedMonthly, (t.epfDedMonthly * period).toFixed(1), (t.citDedMonthly * period).toFixed(1), (t.insDedMonthly * period).toFixed(1), t.periodTotalDed.toFixed(1), t.festivalAllowance, t.taxableGross.toFixed(1), t.taxAmount.toFixed(2), t.advanceDed.toFixed(2), t.netPayable.toFixed(2)]);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Salary_Report");
+      XLSX.writeFile(wb, (window.schoolData.name || 'School') + '_Salary.xlsx');
+      showToast("Excel Export भयो।");
+    };
+
+    window.exportEPFToExcel = function() {
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) { showToast("कुनै डाटा छैन।"); return; }
+      var list = teachers.map(function(t) { return calculateTeacherSalary(t, window.currentPeriodMonths, 'festival', 5000); });
+      var rows = [['S.NO', 'Designation', 'NAME', 'PF Number', 'Total Fund Deducted', 'PF Deducted from Employee', 'PF Contribution by Employer']];
+      var idx = 0;
+      list.filter(function(t) { return t.epfDedMonthly > 0; }).forEach(function(t) {
+        idx++;
+        var tf = t.epfDedMonthly;
+        var ep = Math.round((tf / 2) * 100) / 100;
+        var er = Math.round((tf - ep) * 100) / 100;
+        rows.push([idx, t.post || 'शिक्षक', t.nameEn || t.name || '', t.epfNo || '', tf.toFixed(2), ep.toFixed(2), er.toFixed(2)]);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "EPF");
+      XLSX.writeFile(wb, (window.schoolData.name || 'School') + '_EPF.xlsx');
+      showToast("EPF Export भयो।");
+    };
+
+    window.exportInsuranceToExcel = function() {
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) { showToast("कुनै डाटा छैन।"); return; }
+      var period = window.currentPeriodMonths;
+      var list = teachers.map(function(t) { return calculateTeacherSalary(t, period, 'festival', 5000); });
+      var rows = [['AC NO', 'OLD AC NO', 'EMP SERIAL NO', 'AMOUNT', 'CUSTOMER NAME']];
+      list.filter(function(t) { return t.hasBima; }).forEach(function(t) {
+        rows.push([t.bimaCard || '', '', '', (t.insDedMonthly * period).toFixed(2), t.nameEn || t.name || '']);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Insurance");
+      XLSX.writeFile(wb, (window.schoolData.name || 'School') + '_Insurance.xlsx');
+      showToast("बिमा Export भयो।");
+    };
+
+    window.exportCITToExcel = function() {
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) { showToast("कुनै डाटा छैन।"); return; }
+      var period = window.currentPeriodMonths;
+      var list = teachers.map(function(t) { return calculateTeacherSalary(t, period, 'festival', 5000); });
+      var rows = [['AC NO', 'OLD AC NO', 'EMP SERIAL NO', 'AMOUNT', 'CUSTOMER NAME']];
+      list.filter(function(t) { return t.citDedMonthly > 0; }).forEach(function(t) {
+        rows.push([t.citNo || '', '', '', (t.citDedMonthly * period).toFixed(2), t.nameEn || t.name || '']);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "CIT");
+      XLSX.writeFile(wb, (window.schoolData.name || 'School') + '_CIT.xlsx');
+      showToast("ना.ल.को. Export भयो।");
+    };
+
+    window.exportTaxToExcel = function() {
+      var teachers = window.schoolData.teachers || [];
+      if (teachers.length === 0) { showToast("कुनै डाटा छैन।"); return; }
+      var list = teachers.map(function(t) { return calculateTeacherSalary(t, window.currentPeriodMonths, 'festival', 5000); });
+      var tDate = getLastDayOfPeriod();
+      var rows = [['Pan', 'Name', 'TDate', 'Date Type', 'Payment Amount', 'TDS Amount', 'TDS Type']];
+      list.forEach(function(t) {
+        rows.push([t.pan || '', t.nameEn || t.name || '', tDate, 'BS', t.taxableGross.toFixed(2), t.taxAmount.toFixed(2), 33]);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "TDS");
+      XLSX.writeFile(wb, (window.schoolData.name || 'School') + '_TDS.xlsx');
+      showToast("कर Export भयो।");
+    };
+
+    // ==================== BACKUP / RESTORE ====================
+    window.exportJSON = function() {
+      try {
+        saveToLocal(false);
+        const dataStr = JSON.stringify(window.appData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, '-');
+        const schoolName = (window.schoolData.name || 'school').replace(/\s+/g, '_');
+        a.href = url;
+        a.download = `backup_${schoolName}_${timestamp}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ JSON Backup Export भयो');
+      } catch(e) {
+        showToast('❌ Export समस्या: ' + e.message);
+      }
+    };
+
+    window.handleRestoreFile = function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (!confirm('⚠️ यो Backup Restore गर्दा हालको सबै डाटा मेटिन्छ। जारी राख्ने?')) {
+        event.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.schoolData && !parsed.salarySettingsData) {
+            throw new Error('अवैध Backup फाइल');
+          }
+          
+          try {
+            localStorage.setItem(BACKUP_KEY, JSON.stringify(window.appData));
+          } catch(e) {}
+
+          window.appData = parsed;
+          window.schoolData = window.appData.schoolData;
+          window.salarySettingsData = window.appData.salarySettingsData || window.salarySettingsData;
+          
+          saveToLocal(false);
+          
+          const s = window.appData.settings || {};
+          if (s.fiscalYear && document.getElementById('calcFiscalYear')) document.getElementById('calcFiscalYear').value = s.fiscalYear;
+          if (s.fromMonth && document.getElementById('calcFromMonth')) document.getElementById('calcFromMonth').value = s.fromMonth;
+          if (s.toMonth && document.getElementById('calcToMonth')) document.getElementById('calcToMonth').value = s.toMonth;
+          
+          updatePeriodMonths();
+          renderApp();
+          renderSalarySettings();
+          updateRankDropdown();
+          updateBackupInfo();
+          
+          showToast('✅ Backup Restore भयो!');
+        } catch(err) {
+          console.error(err);
+          showToast('❌ Restore समस्या: ' + err.message);
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    };
+
+    window.exportExcelComplete = function() {
+      try {
+        const teachers = window.schoolData.teachers || [];
+        if (teachers.length === 0) {
+          showToast('कुनै शिक्षक डाटा छैन');
+          return;
+        }
+        
+        const wb = XLSX.utils.book_new();
+        
+        const schoolInfo = [
+          ['विद्यालय तलब व्यवस्थापन प्रणाली - Backup'],
+          ['Export मिति:', new Date().toLocaleString('en-GB')],
+          [],
+          ['विद्यालयको नाम:', window.schoolData.name || ''],
+          ['English Name:', window.schoolData.nameEn || ''],
+          ['EMIS कोड:', window.schoolData.code || ''],
+          ['ठेगाना:', window.schoolData.address || ''],
+          ['प्रधानाध्यापक:', window.schoolData.principal || ''],
+          ['लेखापाल:', window.schoolData.accountOfficer || ''],
+          ['बैंक:', window.schoolData.bankName || ''],
+          ['शाखा:', window.schoolData.bankBranch || ''],
+          [],
+          ['कुल शिक्षक:', teachers.length]
+        ];
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(schoolInfo), "School_Info");
+        
+        const teacherHeaders = ['क्र.सं.', 'नाम', 'English Name', 'योग्यता', 'दर्जा', 'पद', 'लिङ्ग', 'नियुक्ति', 'संकेत नं.', 'स्केल', 'ग्रेड', 'ग्रेड दर', 'बिमा', 'बिमा ID', 'क.सं.कोष नं.', 'क.सं.%', 'ना.ल.कोष नं.', 'ना.ल.को. कट्टी', 'PAN', 'खाता', 'महंगी', 'प्र.अ.', 'स्थानीय', 'प्रोत्साहन', 'पेश्की', 'दिन'];
+        const teacherRows = [teacherHeaders];
+        teachers.forEach((t, idx) => {
+          teacherRows.push([
+            idx + 1, t.name, t.nameEn || '', t.qual || '', t.rank || '', t.post || '',
+            t.gender || '', t.appType || '', t.code || '', t.scale || 0,
+            t.gradeCount || 0, t.gradeRate || 0, t.bima || 'No', t.bimaCard || '',
+            t.epfNo || '', t.epfPercent || 0, t.citNo || '', t.citVal || 0,
+            t.pan || '', t.account || '', t.mahangi || 0, t.ht || 0,
+            t.local || 0, t.incentive || 0, t.advanceDed || 0, t.partialDays || 30
+          ]);
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(teacherRows), "Teachers_Master");
+        
+        const settingsRows = [['दर्जा', 'तलब स्केल', 'ग्रेड दर']];
+        Object.keys(window.salarySettingsData).forEach(rank => {
+          const d = window.salarySettingsData[rank];
+          settingsRows.push([rank, d.basic, d.gradeRate]);
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(settingsRows), "Salary_Settings");
+        
+        const fileName = `backup_${(window.schoolData.name || 'school').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast('✅ Excel Backup Export भयो');
+      } catch(e) {
+        console.error(e);
+        showToast('❌ Excel Export समस्या: ' + e.message);
+      }
+    };
+
+    window.exportPDFReport = function() {
+      window.print();
+    };
+
+    window.updateBackupInfo = function() {
+      try {
+        const countEl = document.getElementById('backupTeacherCount');
+        if (countEl) countEl.textContent = (window.schoolData.teachers || []).length + ' जना';
+        
+        const sizeEl = document.getElementById('backupDataSize');
+        if (sizeEl) {
+          const raw = localStorage.getItem(STORAGE_KEY) || '';
+          const sizeKB = (new Blob([raw]).size / 1024).toFixed(1);
+          sizeEl.textContent = sizeKB + ' KB';
+        }
+        
+        const savedEl = document.getElementById('backupLastSaved');
+        if (savedEl) {
+          if (window.appData.lastSaved) {
+            const d = new Date(window.appData.lastSaved);
+            savedEl.textContent = d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+          } else {
+            savedEl.textContent = 'कहिल्यै छैन';
+          }
+        }
+      } catch(e) { console.error(e); }
+    };
+
+    window.openBackupModal = function() {
+      document.getElementById('backupModal').classList.remove('hidden');
+    };
+
+    window.closeBackupModal = function() {
+      document.getElementById('backupModal').classList.add('hidden');
+    };
+
+    window.openRestoreDialog = function() {
+      closeBackupModal();
+      document.getElementById('restoreFile').click();
+    };
+
+    window.resetAllData = function() {
+      if (!confirm('⚠️ सबै शिक्षक डाटा मेटिन्छ (Settings रहन्छ)। जारी राख्ने?')) return;
+      if (!confirm('पक्का हुनुहुन्छ? यो फिर्ता गर्न सकिँदैन।')) return;
+      
+      try {
+        localStorage.setItem(BACKUP_KEY, JSON.stringify(window.appData));
+      } catch(e) {}
+      
+      window.schoolData.teachers = [];
+      window.selectedTeacherIds.clear();
+      window.selectedReportIds.clear();
+      saveToLocal(true);
+      renderApp();
+      showToast('✅ सबै डाटा मेटियो');
+    };
+
+    window.factoryReset = function() {
+      if (!confirm('💥 Factory Reset गर्दा सबै डाटा स्थायी रूपमा मेटिन्छ। जारी राख्ने?')) return;
+      if (!confirm('अन्तिम चेतावनी! सबै डाटा, सेटिङ, शिक्षक सबै मेटिन्छ।')) return;
+      
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('school_payroll_creds');
+      } catch(e) {}
+      
+      location.reload();
+    };
+
+    // ==================== RANK DROPDOWN ====================
+    window.updateRankDropdown = function() {
+      var sel = document.getElementById('modalRank');
+      if (!sel) return;
+      
+      sel.innerHTML = '<option value="">छान्नुहोस्...</option>';
+      
+      var settings = window.salarySettingsData;
+      if (!settings || Object.keys(settings).length === 0) {
+        settings = {
+          "मा. शि. प्र.": { basic: 61830, gradeRate: 2061 },
+          "मा. शि. द्वि.": { basic: 53610, gradeRate: 1787 },
+          "मा. शि. तृ.": { basic: 48058, gradeRate: 1602 },
+          "नि. मा. शि. प्र.": { basic: 53610, gradeRate: 1787 },
+          "नि. मा. शि. द्वि.": { basic: 48058, gradeRate: 1602 },
+          "नि. मा. शि. तृ.": { basic: 38203, gradeRate: 1273 },
+          "प्रा. शि. प्र.": { basic: 48058, gradeRate: 1602 },
+          "प्रा. शि. द्वि.": { basic: 38203, gradeRate: 1273 },
+          "प्रा. शि. तृ.": { basic: 36199, gradeRate: 1206 },
+          "श्रेणीविहिन": { basic: 26000, gradeRate: 867 },
+          "अन्य": { basic: 0, gradeRate: 0 }
+        };
+        window.salarySettingsData = settings;
+      }
+      
+      Object.keys(settings).forEach(function(rank) {
+        if (rank !== 'अन्य') {
+          var opt = document.createElement('option');
+          opt.value = rank;
+          opt.textContent = rank;
+          sel.appendChild(opt);
+        }
+      });
+      
+      var otherOpt = document.createElement('option');
+      otherOpt.value = 'अन्य';
+      otherOpt.textContent = 'अन्य (Manual)';
+      sel.appendChild(otherOpt);
+    };
+
+    window.togglePermanentFields = function() {
+      var appType = document.getElementById('modalAppType').value;
+      var epfInput = document.getElementById('modalEpfPercent');
+      if (appType.trim() === 'स्थायी') {
+        epfInput.value = 20;
+        epfInput.classList.add('bg-emerald-50');
+      } else {
+        epfInput.classList.remove('bg-emerald-50');
+      }
+    };
+
+    // ==================== IMPORT ====================
+    window.handleExcelFileUpload = function(event) {
+      var file = event.target.files[0];
+      if (!file) return;
+      processExcelFile(file);
+    };
+
+    var dropZone = document.getElementById('dropZone');
+    if (dropZone) {
+      ['dragenter', 'dragover'].forEach(function(en) {
+        dropZone.addEventListener(en, function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('border-blue-600'); }, false);
+      });
+      ['dragleave', 'drop'].forEach(function(en) {
+        dropZone.addEventListener(en, function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('border-blue-600'); }, false);
+      });
+      dropZone.addEventListener('drop', function(e) {
+        var file = e.dataTransfer.files[0];
+        if (file) processExcelFile(file);
+      }, false);
+    }
+
+    function processExcelFile(file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var data = new Uint8Array(e.target.result);
+          var workbook = XLSX.read(data, { type: 'array' });
+          var worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          if (!jsonData || jsonData.length === 0) { showToast("फाइल खाली छ।"); return; }
+          parseImportRows(jsonData);
+        } catch (err) { showToast("Excel पढ्न समस्या।"); console.error(err); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function parseImportRows(rows) {
+      var headerRowIndex = -1;
+      for (var r = 0; r < Math.min(rows.length, 10); r++) {
+        var rowStr = (rows[r] || []).join(' ');
+        if (rowStr.indexOf('शिक्षक') !== -1 || rowStr.indexOf('NAME') !== -1 || rowStr.indexOf('तलब') !== -1) { headerRowIndex = r; break; }
+      }
+      if (headerRowIndex === -1) headerRowIndex = 0;
+      var dataRows = rows.slice(headerRowIndex + 1).filter(function(r) { return r && r.length > 0 && r.some(function(c) { return c !== null && c !== ''; }); });
+      window.parsedImportTeachers = [];
+
+      dataRows.forEach(function(r, idx) {
+        var nameNepali = r[0] || '';
+        var nameEnglish = r[1] || '';
+        if (!nameNepali && !nameEnglish) return;
+        var appType = String(r[6] || 'स्थायी').trim();
+        var isPermanent = appType === 'स्थायी';
+        var scale = parseFloat(r[11]) || 0;
+        var gradeCount = parseInt(r[12]) || 0;
+        var gradeRate = parseFloat(r[13]) || 0;
+        var incentiveVal = 0;
+        var rawInc = r[19];
+        if (typeof rawInc === 'number') incentiveVal = rawInc;
+        else if (typeof rawInc === 'string' && rawInc.indexOf('=') === 0) {
+          var bwg = scale + (gradeCount * gradeRate);
+          incentiveVal = isPermanent ? Math.round(bwg * 0.1 * 100) / 100 : 0;
+        } else if (rawInc) incentiveVal = parseFloat(rawInc) || 0;
+        var rawCitVal = parseFloat(r[23]) || 0;
+        window.parsedImportTeachers.push({
+          id: Date.now() + idx,
+          name: String(nameNepali).trim(), nameEn: String(nameEnglish).trim(),
+          qual: String(r[2] || '').trim(), rank: String(r[3] || '').trim(),
+          post: String(r[4] || 'शिक्षक').trim(), gender: String(r[5] || 'पुरुष').trim(),
+          appType: appType, code: String(r[10] || '').trim(),
+          scale: scale, gradeCount: gradeCount, gradeRate: gradeRate,
+          bima: String(r[14] || 'No').trim(), bimaCard: String(r[15] || '').trim(),
+          mahangi: parseFloat(r[16]) || 0, ht: parseFloat(r[17]) || 0,
+          local: parseFloat(r[18]) || 0, incentive: incentiveVal,
+          epfNo: String(r[20] || '').trim(), epfPercent: parseFloat(r[21]) || 0,
+          citNo: String(r[22] || '').trim(),
+          citVal: rawCitVal, citType: rawCitVal > 50 ? 'amount' : 'percent',
+          pan: String(r[24] || '').trim(), account: String(r[25] || '').trim(),
+          advanceDed: 0, partialDays: 30
+        });
+      });
+
+      var pc = document.getElementById('importPreviewContainer');
+      var ph = document.getElementById('importPreviewTableHead');
+      var pb = document.getElementById('importPreviewTableBody');
+      if (ph) ph.innerHTML = '<th class="p-2">क्र.सं.</th><th class="p-2">नाम</th><th class="p-2">English</th><th class="p-2">दर्जा/पद</th><th class="p-2">स्केल</th><th class="p-2">क.सं.%</th><th class="p-2">ना.ल.%</th>';
+      if (pb) {
+        pb.innerHTML = '';
+        window.parsedImportTeachers.forEach(function(t, i) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td class="p-2 font-mono">' + (i+1) + '</td><td class="p-2 font-bold">' + t.name + '</td><td class="p-2">' + t.nameEn + '</td><td class="p-2">' + t.rank + '</td><td class="p-2 text-right font-mono">' + t.scale + '</td><td class="p-2 font-mono">' + t.epfPercent + '%</td><td class="p-2 font-mono">' + t.citVal + '</td>';
+          pb.appendChild(tr);
+        });
+      }
+      var statusEl = document.getElementById('importFileStatusText');
+      if (statusEl) statusEl.textContent = 'जम्मा ' + window.parsedImportTeachers.length + ' जना भेटियो।';
+      if (pc) pc.classList.remove('hidden');
+      showToast(window.parsedImportTeachers.length + ' शिक्षकहरू तयार।');
+    }
+
+    window.commitImportData = function() {
+      if (window.parsedImportTeachers.length === 0) { showToast("कुनै विवरण भेटिएन।"); return; }
+      window.schoolData.teachers = JSON.parse(JSON.stringify(window.parsedImportTeachers));
+      window.selectedTeacherIds.clear();
+      window.selectedReportIds.clear();
+      window.parsedImportTeachers.forEach(function(t) { window.selectedReportIds.add(t.id); });
+      cancelImport();
+      showToast('बधाई! ' + window.parsedImportTeachers.length + ' जना थपियो।');
+      navigateTab('employees');
+      renderApp();
+      autoSave();
+    };
+
+    window.cancelImport = function() {
+      window.parsedImportTeachers = [];
+      var pc = document.getElementById('importPreviewContainer');
+      if (pc) pc.classList.add('hidden');
+      var ef = document.getElementById('excelFileInput');
+      if (ef) ef.value = '';
+    };
+
+    window.downloadSampleTemplate = function() {
+      var headers = ["शिक्षक तथा कर्मचारीको नाम थर","NAME IN ENGLISH","योग्यता","दर्जा","पद","लिङ्ग","स्थायी / अस्थायी/करार","अस्थायी नियुक्ति मिति","स्थायी नियुक्ति मिति","सरुवा मिति","संकेत नं.","तलब स्केल","ग्रेड","ग्रेड दर","बिमा","बिमा परिचयपत्र नं.","महंगी भत्ता","प्र.अ. भत्ता","स्थानीय भत्ता","प्रोत्साहन भत्ता","क.सं.कोष नं.","क.सं.कोष कट्टी %","ना.ल.कोष नं.","ना.ल.को. कट्टी %","पान नं.","खाता नं."];
+      var sampleRows = [["बिना लामा तामाङ","BINA LAMA TAMANG","M.BS","मा. शि. द्वि.","शिक्षक","महिला","अस्थायी (करार)","2080","","","","53610","0","1787","No","","5000","0","0","0","64286498","33","","0","306601407","11101707572924000001"]];
+      var ws = XLSX.utils.aoa_to_sheet([headers].concat(sampleRows));
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Teacher_Master");
+      XLSX.writeFile(wb, "Teacher_Master_Template.xlsx");
+      showToast("Template डाउनलोड भयो।");
+    };
+
+    // ==================== SALARY SETTINGS ====================
+    window.renderSalarySettings = function() {
+      try {
+        var tbody = document.getElementById('salarySettingsBody');
+        if (tbody) {
+          tbody.innerHTML = '';
+          if (!window.salarySettingsData || Object.keys(window.salarySettingsData).length === 0) {
+            window.salarySettingsData = {
+              "मा. शि. प्र.": { basic: 61830, gradeRate: 2061 },
+              "मा. शि. द्वि.": { basic: 53610, gradeRate: 1787 },
+              "मा. शि. तृ.": { basic: 48058, gradeRate: 1602 },
+              "नि. मा. शि. प्र.": { basic: 53610, gradeRate: 1787 },
+              "नि. मा. शि. द्वि.": { basic: 48058, gradeRate: 1602 },
+              "नि. मा. शि. तृ.": { basic: 38203, gradeRate: 1273 },
+              "प्रा. शि. प्र.": { basic: 48058, gradeRate: 1602 },
+              "प्रा. शि. द्वि.": { basic: 38203, gradeRate: 1273 },
+              "प्रा. शि. तृ.": { basic: 36199, gradeRate: 1206 },
+              "श्रेणीविहिन": { basic: 26000, gradeRate: 867 },
+              "अन्य": { basic: 0, gradeRate: 0 }
+            };
+          }
+          
+          Object.keys(window.salarySettingsData).forEach(function(rank) {
+            var data = window.salarySettingsData[rank];
+            var tr = document.createElement('tr');
+            var isOther = rank === 'अन्य';
+            var safeRank = rank.replace(/'/g, "\\'");
+            tr.innerHTML = '<td class="p-3 font-semibold bg-slate-50 border-r"><input type="text" value="' + rank + '" id="rankName_' + safeRank + '" class="w-full border p-1 rounded font-semibold" ' + (isOther ? 'readonly' : '') + '></td>' +
+              '<td class="p-3"><input type="number" id="basic_' + safeRank + '" value="' + data.basic + '" class="w-full border p-2 rounded"></td>' +
+              '<td class="p-3"><input type="number" id="grade_' + safeRank + '" value="' + data.gradeRate + '" class="w-full border p-2 rounded"></td>' +
+              '<td class="p-3 text-center"><button onclick="removeRank(\'' + safeRank + '\')" class="text-rose-600 text-xs border border-rose-200 bg-rose-50 px-2 py-1 rounded" ' + (isOther ? 'disabled' : '') + '>हटाउने</button></td>';
+            tbody.appendChild(tr);
+          });
+        }
+
+        var teacherTbody = document.getElementById('teacherSalaryDetailsBody');
+        var countBadge = document.getElementById('salaryDetailsCount');
+        if (teacherTbody) {
+          teacherTbody.innerHTML = '';
+          var teachers = window.schoolData.teachers || [];
+          if (countBadge) countBadge.textContent = teachers.length + ' जना';
+          
+          if (teachers.length === 0) {
+            teacherTbody.innerHTML = '<tr><td colspan="10" class="p-4 text-center text-slate-400 text-xs">कुनै शिक्षक/कर्मचारी डाटा छैन। Excel Import गर्नुहोस्।</td></tr>';
+          } else {
+            teachers.forEach(function(t, idx) {
+              var scale = Number(t.scale) || 0;
+              var gradeCount = Number(t.gradeCount) || 0;
+              var gradeRate = Number(t.gradeRate) || 0;
+              var gradeAmount = Math.round(gradeCount * gradeRate);
+              var gradeInclusiveBasic = Math.round(scale + gradeAmount);
+              
+              var tr = document.createElement('tr');
+              tr.className = 'hover:bg-blue-50/50';
+              tr.innerHTML = '<td class="p-2 border font-mono text-slate-500">' + (idx + 1) + '</td>' +
+                '<td class="p-2 border font-bold">' + t.name + '</td>' +
+                '<td class="p-2 border"><span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px] font-semibold">' + (t.rank || 'अन्य') + '</span></td>' +
+                '<td class="p-2 border">' + (t.post || 'शिक्षक') + '</td>' +
+                '<td class="p-2 border text-slate-600">' + (t.appType || '-') + '</td>' +
+                '<td class="p-2 border text-right font-mono">' + scale.toLocaleString('en-IN') + '</td>' +
+                '<td class="p-2 border text-center font-mono">' + gradeCount + '</td>' +
+                '<td class="p-2 border text-right font-mono">' + gradeRate.toLocaleString('en-IN') + '</td>' +
+                '<td class="p-2 border text-right font-mono">' + gradeAmount.toLocaleString('en-IN') + '</td>' +
+                '<td class="p-2 border text-right font-mono font-bold text-blue-800 bg-blue-50">' + gradeInclusiveBasic.toLocaleString('en-IN') + '</td>';
+              teacherTbody.appendChild(tr);
+            });
+          }
+        }
+      } catch(e) { console.error('renderSalarySettings:', e); }
+    };
+
+    window.addNewRank = function() {
+      var newRank = prompt("नयाँ दर्जा:");
+      if (!newRank || !newRank.trim()) return;
+      if (window.salarySettingsData[newRank]) { showToast("पहिले नै छ।"); return; }
+      window.salarySettingsData[newRank] = { basic: 30000, gradeRate: 1000 };
+      renderSalarySettings();
+      updateRankDropdown();
+      autoSave();
+    };
+
+    window.removeRank = function(rank) {
+      if (rank === 'अन्य') { showToast("यो हटाउन मिल्दैन।"); return; }
+      if (!confirm('"' + rank + '" हटाउने?')) return;
+      delete window.salarySettingsData[rank];
+      renderSalarySettings();
+      updateRankDropdown();
+      autoSave();
+    };
+
+    window.saveSalarySettings = function() {
+      var newData = {};
+      Object.keys(window.salarySettingsData).forEach(function(rank) {
+        var safeRank = rank.replace(/'/g, "\\'");
+        var nameInput = document.getElementById('rankName_' + safeRank);
+        var newName = nameInput ? nameInput.value.trim() : rank;
+        if (!newName) { showToast("नाम खाली।"); return; }
+        var basicInput = document.getElementById('basic_' + safeRank);
+        var gradeInput = document.getElementById('grade_' + safeRank);
+        newData[newName] = {
+          basic: basicInput ? (parseFloat(basicInput.value) || 0) : 0,
+          gradeRate: gradeInput ? (parseFloat(gradeInput.value) || 0) : 0
+        };
+      });
+      window.salarySettingsData = newData;
+      renderSalarySettings();
+      updateRankDropdown();
+      showToast("तलब स्केल सुरक्षित।");
+      autoSave();
+    };
+
+    window.renderAdvanceTab = function() {
+      var select = document.getElementById('advanceTeacherSelect');
+      if (!select) return;
+      var cur = select.value;
+      select.innerHTML = '<option value="">-- छान्नुहोस् --</option>';
+      (window.schoolData.teachers || []).forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name;
+        select.appendChild(opt);
+      });
+      if (cur) select.value = cur;
+      var tbody = document.getElementById('advanceDeductionTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      (window.schoolData.teachers || []).forEach(function(t, idx) {
+        var adv = Number(t.advanceDed || 0);
+        if (adv > 0) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td class="p-3 font-mono">' + (idx + 1) + '</td><td class="p-3 font-bold">' + t.name + '</td><td class="p-3">' + (t.rank || '-') + '</td><td class="p-3 text-right font-mono font-bold">रू. ' + adv.toFixed(2) + '</td><td class="p-3 text-center"><button onclick="removeAdvance(' + t.id + ')" class="text-rose-600 text-xs border border-rose-200 bg-rose-50 px-2 py-1 rounded">हटाउने</button></td>';
+          tbody.appendChild(tr);
+        }
+      });
+      if (tbody.children.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400 text-xs">कुनै पेश्की छैन।</td></tr>';
+    };
+
+    window.applyAdvanceDeduction = function() {
+      var tid = parseInt(document.getElementById('advanceTeacherSelect').value);
+      var amount = parseFloat(document.getElementById('advanceAmount').value) || 0;
+      if (!tid) { showToast("शिक्षक छान्नुहोस्।"); return; }
+      if (amount <= 0) { showToast("रकम हाल्नुहोस्।"); return; }
+      var t = (window.schoolData.teachers || []).find(function(x) { return x.id === tid; });
+      if (!t) return;
+      t.advanceDed = (Number(t.advanceDed) || 0) + amount;
+      showToast(t.name + ' को रू. ' + amount.toFixed(2) + ' लागू भयो।');
+      document.getElementById('advanceAmount').value = 0;
+      renderApp();
+      autoSave();
+    };
+
+    window.removeAdvance = function(id) {
+      var t = (window.schoolData.teachers || []).find(function(x) { return x.id === id; });
+      if (!t) return;
+      t.advanceDed = 0;
+      renderApp();
+      autoSave();
+    };
+
+    window.renderPartialDaysTab = function() {
+      var select = document.getElementById('partialDaysTeacherSelect');
+      if (!select) return;
+      var cur = select.value;
+      select.innerHTML = '<option value="">-- छान्नुहोस् --</option>';
+      (window.schoolData.teachers || []).forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name;
+        select.appendChild(opt);
+      });
+      if (cur) select.value = cur;
+      var tbody = document.getElementById('partialDaysTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      (window.schoolData.teachers || []).forEach(function(t, idx) {
+        var days = Number(t.partialDays !== undefined ? t.partialDays : 30);
+        if (days < 30) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td class="p-3 font-mono">' + (idx + 1) + '</td><td class="p-3 font-bold">' + t.name + '</td><td class="p-3">' + (t.rank || '-') + '</td><td class="p-3 text-center font-mono font-bold text-rose-800">' + days + ' दिन</td><td class="p-3 text-center font-mono">' + (days/30*100).toFixed(1) + '%</td><td class="p-3 text-center"><button onclick="removePartialDays(' + t.id + ')" class="text-rose-600 text-xs border border-rose-200 bg-rose-50 px-2 py-1 rounded">हटाउने</button></td>';
+          tbody.appendChild(tr);
+        }
+      });
+      if (tbody.children.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400 text-xs">सबै ३० दिन पूरा छ।</td></tr>';
+    };
+
+    window.applyPartialDays = function() {
+      var tid = parseInt(document.getElementById('partialDaysTeacherSelect').value);
+      var days = parseInt(document.getElementById('partialDaysWorked').value) || 30;
+      if (!tid) { showToast("शिक्षक छान्नुहोस्।"); return; }
+      if (days < 1 || days > 30) { showToast("१-३० बीच।"); return; }
+      var t = (window.schoolData.teachers || []).find(function(x) { return x.id === tid; });
+      if (!t) return;
+      t.partialDays = days;
+      showToast(t.name + ' को ' + days + ' दिन।');
+      renderApp();
+      autoSave();
+    };
+
+    window.removePartialDays = function(id) {
+      var t = (window.schoolData.teachers || []).find(function(x) { return x.id === id; });
+      if (!t) return;
+      t.partialDays = 30;
+      renderApp();
+      autoSave();
+    };
+
+    function renderEPFTab(list, period) {
+      var tbody = document.getElementById('epfTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      var idx = 0;
+      list.filter(function(t) { return t.epfDedMonthly > 0; }).forEach(function(t) {
+        idx++;
+        var tf = t.epfDedMonthly;
+        var ep = Math.round((tf / 2) * 100) / 100;
+        var er = Math.round((tf - ep) * 100) / 100;
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="p-2.5 border font-mono">' + idx + '</td><td class="p-2.5 border">' + (t.post || 'शिक्षक') + '</td><td class="p-2.5 border font-bold">' + (t.nameEn || t.name) + '</td><td class="p-2.5 border font-mono">' + (t.epfNo || '-') + '</td><td class="p-2.5 border text-right font-mono font-bold text-blue-800">' + tf.toFixed(2) + '</td><td class="p-2.5 border text-right font-mono">' + ep.toFixed(2) + '</td><td class="p-2.5 border text-right font-mono">' + er.toFixed(2) + '</td>';
+        tbody.appendChild(tr);
+      });
+      if (tbody.children.length === 0) tbody.innerHTML = '<tr><td colspan="7" class="p-4 border text-center text-slate-400 text-xs">कुनै डाटा छैन।</td></tr>';
+    }
+
+    function renderInsuranceTab(list, period) {
+      var tbody = document.getElementById('insuranceTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      list.filter(function(t) { return t.hasBima; }).forEach(function(t) {
+        var amount = t.insDedMonthly * period;
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="p-2.5 border font-mono">' + (t.bimaCard || '-') + '</td><td class="p-2.5 border"></td><td class="p-2.5 border"></td><td class="p-2.5 border text-right font-mono font-bold text-emerald-800">' + amount.toFixed(2) + '</td><td class="p-2.5 border font-bold">' + (t.nameEn || t.name) + '</td>';
+        tbody.appendChild(tr);
+      });
+      if (tbody.children.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="p-4 border text-center text-slate-400 text-xs">कुनै डाटा छैन।</td></tr>';
+    }
+
+    function renderCITTab(list, period) {
+      var tbody = document.getElementById('citTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      list.filter(function(t) { return t.citDedMonthly > 0; }).forEach(function(t) {
+        var amount = t.citDedMonthly * period;
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="p-2.5 border font-mono">' + (t.citNo || '-') + '</td><td class="p-2.5 border"></td><td class="p-2.5 border"></td><td class="p-2.5 border text-right font-mono font-bold text-purple-800">' + amount.toFixed(2) + '</td><td class="p-2.5 border font-bold">' + (t.nameEn || t.name) + '</td>';
+        tbody.appendChild(tr);
+      });
+      if (tbody.children.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="p-4 border text-center text-slate-400 text-xs">कुनै डाटा छैन।</td></tr>';
+    }
+
+    function renderTaxTab(list, period) {
+      var tbody = document.getElementById('taxTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      var tDate = getLastDayOfPeriod();
+      list.forEach(function(t) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="p-2.5 border font-mono">' + (t.pan || '-') + '</td><td class="p-2.5 border font-bold">' + (t.nameEn || t.name) + '</td><td class="p-2.5 border font-mono">' + tDate + '</td><td class="p-2.5 border text-center">BS</td><td class="p-2.5 border text-right font-mono">' + t.taxableGross.toFixed(2) + '</td><td class="p-2.5 border text-right font-mono font-bold text-rose-800">' + t.taxAmount.toFixed(2) + '</td><td class="p-2.5 border text-center font-mono">33</td>';
+        tbody.appendChild(tr);
+      });
+      if (tbody.children.length === 0) tbody.innerHTML = '<tr><td colspan="7" class="p-4 border text-center text-slate-400 text-xs">कुनै डाटा छैन।</td></tr>';
+    }
+
+    // ==================== BANK LETTER ====================
+    window.renderBankLetterFromTab = function() {
+      var list = (window.schoolData.teachers || []).map(function(t) { return calculateTeacherSalary(t, window.currentPeriodMonths, 'festival', 5000); });
+      renderBankLetter(list, window.currentPeriodMonths);
+    };
+
+    function renderBankLetter(list, period) {
+      try {
+        var el = document.getElementById('bankLetterContent');
+        if (!el) return;
+        var sd = window.schoolData;
+        var fiscalYearEl = document.getElementById('calcFiscalYear');
+        var fiscalYear = fiscalYearEl ? fiscalYearEl.value : '२०८३/०८४';
+        var periodText = getPeriodText();
+        var dateInput = document.getElementById('bankLetterDate');
+        var tDateNepali = dateInput ? dateInput.value : getLastDayOfPeriod().replace(/\./g, '/');
+        var filtered = list.filter(function(t) { return window.selectedReportIds.has(t.id); });
+        var totalNet = 0;
+        filtered.forEach(function(t) { totalNet += t.netPayable; });
+
+        if (filtered.length === 0) {
+          el.innerHTML = '<div class="text-center text-slate-400 py-12 text-sm">कुनै शिक्षक छानिएको छैन।</div>';
+          return;
+        }
+
+        var amountInWords = numberToNepaliWordsWithDecimal(totalNet);
+        var logoHtml = '';
+        if (sd.logoData && sd.logoData.length > 50 && sd.logoData.indexOf('data:image') === 0) {
+          logoHtml = '<img src="' + sd.logoData + '" style="max-width:80px;max-height:80px;">';
+        } else {
+          logoHtml = '<svg viewBox="0 0 100 100" style="width:80px;height:80px;"><circle cx="50" cy="50" r="45" fill="white" stroke="#1e3a8a" stroke-width="2"/><circle cx="50" cy="50" r="38" fill="none" stroke="#1e3a8a" stroke-width="1"/><text x="50" y="45" text-anchor="middle" font-size="9" fill="#1e3a8a" font-weight="bold">विद्यालय</text><text x="50" y="58" text-anchor="middle" font-size="7" fill="#1e3a8a" font-weight="bold">लोगो</text></svg>';
+        }
+
+        var rows = '';
+        filtered.forEach(function(t, idx) {
+          rows += '<tr><td style="border:1px solid #334155;padding:2px 4px;text-align:center;font-family:monospace;">' + (idx + 1) + '</td><td style="border:1px solid #334155;padding:2px 4px;text-align:center;">' + (t.rank || '-') + '</td><td style="border:1px solid #334155;padding:2px 4px;font-weight:600;">' + t.name + '</td><td style="border:1px solid #334155;padding:2px 4px;text-align:center;font-family:monospace;">' + (t.account || '-') + '</td><td style="border:1px solid #334155;padding:2px 4px;text-align:right;font-family:monospace;font-weight:bold;">' + t.netPayable.toFixed(2) + '</td><td style="border:1px solid #334155;padding:2px 4px;"></td></tr>';
+        });
+
+        var html = '';
+        html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">';
+        html += '<div style="width:80px;">' + logoHtml + '</div>';
+        html += '<div style="flex:1;text-align:center;">';
+        html += '<h1 style="font-size:15px;font-weight:bold;color:#1e3a8a;margin:0;">' + (sd.name || '') + '</h1>';
+        html += '<h2 style="font-size:12px;font-weight:bold;color:#1e40af;margin:0;">' + (sd.nameEn || '') + '</h2>';
+        html += '<p style="font-size:10px;margin:2px 0;">' + (sd.address || '') + '</p>';
+        html += '</div><div style="width:80px;"></div></div>';
+
+        html += '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:8px;">';
+        html += '<div><p style="margin:1px 0;">प.सं. <strong>' + (sd.patraSankhya || fiscalYear) + '</strong></p><p style="margin:1px 0;">च.नं. ' + (sd.chalanNumber || '') + '</p></div>';
+        html += '<div><p style="margin:1px 0;">मिति: <strong>' + tDateNepali + '</strong></p></div></div>';
+
+        html += '<div style="font-size:10px;margin-bottom:6px;"><p style="margin:1px 0;">श्रीमान् प्रबन्धक ज्यू,</p><p style="margin:1px 0;font-weight:600;">' + (sd.bankName || '') + '</p><p style="margin:1px 0;">' + (sd.bankBranch || '') + ', ' + (sd.bankAddress || '') + '</p></div>';
+
+        html += '<div style="text-align:center;margin:6px 0;"><p style="font-weight:bold;font-size:11px;text-decoration:underline;">विषय :- रकम जम्मा गरिदिने बारे ।</p></div>';
+
+        html += '<p style="text-align:justify;font-size:10px;margin:6px 0;line-height:1.3;">प्रस्तुत सम्बन्धमा यस विद्यालयमा कार्यरत शिक्षक कर्मचारीहरूको आ.व. <strong>' + fiscalYear + '</strong> को <strong>' + periodText + '</strong> महिनाको तलब भत्ता गरी जम्मा रू. <strong>' + totalNet.toFixed(2) + '</strong> (अक्षरमा <strong>' + amountInWords + '</strong>) तपसिल बमोजिमको खातामा जम्मा गरिदिनु हुन अनुरोध छ ।</p>';
+
+        html += '<p style="font-size:10px;font-weight:bold;margin:6px 0 2px 0;">तपसिल :</p>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:9px;"><thead><tr style="background:#f1f5f9;font-weight:bold;">';
+        html += '<th style="border:1px solid #334155;padding:2px 4px;text-align:center;width:30px;">क्र.सं.</th>';
+        html += '<th style="border:1px solid #334155;padding:2px 4px;text-align:center;width:70px;">पद</th>';
+        html += '<th style="border:1px solid #334155;padding:2px 4px;text-align:left;">शिक्षक तथा कर्मचारीको नाम थर</th>';
+        html += '<th style="border:1px solid #334155;padding:2px 4px;text-align:center;width:130px;">खाता नम्बर</th>';
+        html += '<th style="border:1px solid #334155;padding:2px 4px;text-align:right;width:80px;">खातामा जम्मा हुने रकम</th>';
+        html += '<th style="border:1px solid #334155;padding:2px 4px;text-align:center;width:60px;">कैफियत</th></tr></thead><tbody>';
+        html += rows;
+        html += '<tr style="background:#f1f5f9;font-weight:bold;"><td style="border:1px solid #334155;padding:2px 4px;text-align:center;" colspan="4">जम्मा</td><td style="border:1px solid #334155;padding:2px 4px;text-align:right;font-family:monospace;">' + totalNet.toFixed(2) + '</td><td style="border:1px solid #334155;padding:2px 4px;"></td></tr></tbody></table>';
+
+        el.innerHTML = html;
+      } catch(e) { console.error('bankLetter:', e); }
+    }
+
+    function numberToNepaliWordsWithDecimal(num) {
+      try {
+        var whole = Math.floor(num);
+        var decimal = Math.round((num - whole) * 100);
+        var result = numberToNepaliWords(whole).replace(' मात्र', '');
+        if (decimal > 0) result += ' दशमलव ' + numberToNepaliWords(decimal).replace(' मात्र', '');
+        return result + ' मात्र';
+      } catch(e) { return 'शून्य मात्र'; }
+    }
+
+    function numberToNepaliWords(num) {
+      if (num === 0) return 'शून्य';
+      var ones = ['','एक','दुई','तीन','चार','पाँच','छ','सात','आठ','नौ','दश','एघार','बाह्र','तेह्र','चौध','पन्ध्र','सोह्र','सत्र','अठार','उन्नाइस','बीस','एक्काइस','बाइस','तेइस','चौबीस','पच्चीस','छब्बीस','सत्ताइस','अठाइस','उनन्तीस','तीस','एकतीस','बतीस','तेतीस','चौतीस','पैंतीस','छत्तीस','सैंतीस','अठतीस','उनन्चालीस','चालीस','एकचालीस','बयालीस','त्रियालीस','चवालीस','पैंतालीस','छयालीस','सतचालीस','अठचालीस','उनन्चास','पचास','एकाउन्न','बाउन्न','त्रिपन्न','चवन्न','पचपन्न','छपन्न','सन्ताउन्न','अन्ठाउन्न','उनन्साठी','साठी','एकसट्ठी','बयसट्ठी','त्रिसट्ठी','चौंसट्ठी','पैंसट्ठी','छैंसट्ठी','सतसट्ठी','अठसट्ठी','उनन्सत्तरी','सत्तरी','एकहत्तर','बहत्तर','त्रिहत्तर','चौहत्तर','पचहत्तर','छयहत्तर','सतहत्तर','अठहत्तर','उनासी','असी','एकासी','बयासी','त्रियासी','चौरासी','पचासी','छयासी','सतासी','अठासी','उनान्नब्बे','नब्बे','एकान्नब्बे','बयान्नब्बे','त्रियान्नब्बे','चौरान्नब्बे','पन्चान्नब्बे','छयान्नब्बे','सन्तान्नब्बे','अन्ठान्नब्बे','उनन्सय'];
+      var parts = [];
+      var str = Math.round(num).toString();
+      if (str.length > 7) { parts.push(ones[Math.min(Math.floor(num/10000000), 99)] + ' करोड'); str = (num % 10000000).toString(); }
+      if (str.length > 5) { parts.push(ones[Math.min(Math.floor(parseInt(str)/100000), 99)] + ' लाख'); str = (parseInt(str) % 100000).toString(); }
+      if (str.length > 3) { parts.push(ones[Math.min(Math.floor(parseInt(str)/1000), 99)] + ' हजार'); str = (parseInt(str) % 1000).toString(); }
+      if (parseInt(str) > 0) { var n = parseInt(str); if (n < 100) parts.push(ones[n]); else parts.push(ones[Math.floor(n/100)] + ' सय ' + (n % 100 > 0 ? ones[n % 100] : '')); }
+      return parts.join(' ') + ' मात्र';
+    }
+
+    // ==================== SCHOOL INFO ====================
+    function renderSchoolInfo() {
+      try {
+        var el = document.getElementById('schoolInfoContent');
+        if (!el) return;
+        var sd = window.schoolData;
+        var fields = [
+          { key: 'name', label: 'विद्यालयको नाम (नेपाली)' },
+          { key: 'nameEn', label: 'विद्यालयको नाम (English)' },
+          { key: 'code', label: 'EMIS कोड' },
+          { key: 'address', label: 'ठेगाना' },
+          { key: 'addressEn', label: 'ठेगाना (English)' },
+          { key: 'province', label: 'प्रदेश' },
+          { key: 'district', label: 'जिल्ला' },
+          { key: 'municipality', label: 'पालिका' },
+          { key: 'ward', label: 'वडा' },
+          { key: 'phone', label: 'फोन' },
+          { key: 'email', label: 'इमेल' },
+          { key: 'principal', label: 'प्रधानाध्यापक' },
+          { key: 'accountOfficer', label: 'लेखापाल' },
+          { key: 'patraSankhya', label: 'प.सं.' },
+          { key: 'chalanNumber', label: 'च.नं.' },
+          { key: 'bankName', label: 'बैंक' },
+          { key: 'bankBranch', label: 'शाखा' },
+          { key: 'bankAddress', label: 'बैंक ठेगाना' }
+        ];
+        var html = '';
+        fields.forEach(function(f) {
+          var value = sd[f.key] || '';
+          var safeValue = String(value).replace(/"/g, '&quot;');
+          html += '<div class="bg-slate-50 p-4 rounded-lg border"><p class="text-xs font-semibold text-slate-500 mb-1">' + f.label + '</p>';
+          if (window.schoolInfoEditMode) html += '<input type="text" id="schoolInfo_' + f.key + '" value="' + safeValue + '" class="w-full text-sm border rounded p-1.5 bg-white font-bold">';
+          else html += '<p class="text-base font-bold mt-1">' + (value || '-') + '</p>';
+          html += '</div>';
+        });
+        html += '<div class="bg-slate-50 p-4 rounded-lg border md:col-span-2"><p class="text-xs font-semibold text-slate-500 mb-1">लोगो</p>';
+        if (window.schoolInfoEditMode) {
+          html += '<input type="file" id="schoolInfo_logoFile" accept="image/*" class="w-full text-sm border rounded p-1.5 bg-white">';
+          html += '<p class="text-[10px] text-slate-500 mt-1">PNG/JPG (Max 500KB)</p>';
+        } else if (sd.logoData && sd.logoData.length > 50) {
+          html += '<img src="' + sd.logoData + '" style="max-width:100px;max-height:100px;" class="mt-2 border rounded">';
+        } else {
+          html += '<p class="text-xs text-slate-400 mt-2">कुनै लोगो छैन</p>';
+        }
+        html += '</div>';
+        el.innerHTML = html;
+      } catch(e) { console.error('schoolInfo:', e); }
+    }
+
+    window.toggleSchoolInfoEdit = function() {
+      window.schoolInfoEditMode = !window.schoolInfoEditMode;
+      var eb = document.getElementById('schoolInfoEditBtn');
+      var sb = document.getElementById('schoolInfoSaveBtn');
+      if (window.schoolInfoEditMode) { eb.classList.add('hidden'); sb.classList.remove('hidden'); }
+      else { eb.classList.remove('hidden'); sb.classList.add('hidden'); }
+      renderSchoolInfo();
+    };
+
+    window.saveSchoolInfo = function() {
+      var sd = window.schoolData;
+      var fields = ['name', 'nameEn', 'code', 'address', 'addressEn', 'province', 'district', 'municipality', 'ward', 'phone', 'email', 'principal', 'accountOfficer', 'patraSankhya', 'chalanNumber', 'bankName', 'bankBranch', 'bankAddress'];
+      fields.forEach(function(f) {
+        var input = document.getElementById('schoolInfo_' + f);
+        if (input) sd[f] = input.value.trim();
+      });
+      var lf = document.getElementById('schoolInfo_logoFile');
+      if (lf && lf.files && lf.files[0]) {
+        var file = lf.files[0];
+        if (file.size > 500 * 1024) { showToast("५००KB भन्दा सानो हुनुपर्छ।"); return; }
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          sd.logoData = e.target.result;
+          window.schoolInfoEditMode = false;
+          document.getElementById('schoolInfoEditBtn').classList.remove('hidden');
+          document.getElementById('schoolInfoSaveBtn').classList.add('hidden');
+          renderSchoolInfo();
+          renderApp();
+          autoSave();
+          showToast("✅ सुरक्षित।");
+        };
+        reader.readAsDataURL(file);
+      } else {
+        window.schoolInfoEditMode = false;
+        document.getElementById('schoolInfoEditBtn').classList.remove('hidden');
+        document.getElementById('schoolInfoSaveBtn').classList.add('hidden');
+        renderSchoolInfo();
+        renderApp();
+        autoSave();
+        showToast("✅ सुरक्षित।");
+      }
+    };
+
+    // ==================== TEACHER MODAL ====================
+    window.openNewTeacherModal = function() {
+      document.getElementById('modalTitle').textContent = "नयाँ शिक्षक";
+      document.getElementById('modalTeacherId').value = "";
+      ['modalName','modalNameEn','modalQual','modalCode','modalBimaCard','modalEpfNo','modalCitNo','modalPan','modalAccount'].forEach(function(id) { document.getElementById(id).value = ''; });
+      document.getElementById('modalRank').value = '';
+      document.getElementById('modalScale').value = '48058';
+      document.getElementById('modalGradeRate').value = '1602';
+      document.getElementById('modalGradeCount').value = '0';
+      document.getElementById('modalCitType').value = 'percent';
+      document.getElementById('modalCitVal').value = '0';
+      document.getElementById('modalHt').value = '0';
+      document.getElementById('modalLocal').value = '0';
+      document.getElementById('modalIncentive').value = '0';
+      document.getElementById('modalMahangi').value = '5000';
+      document.getElementById('modalEpfPercent').value = '10';
+      document.getElementById('newTeacherModal').classList.remove('hidden');
+      updateRankDropdown();
+    };
+
+    window.editTeacher = function(id) {
+      var t = (window.schoolData.teachers || []).find(function(x) { return x.id === id; });
+      if (!t) return;
+      document.getElementById('modalTitle').textContent = t.name + ' को विवरण';
+      document.getElementById('modalTeacherId').value = t.id;
+      document.getElementById('modalName').value = t.name || '';
+      document.getElementById('modalNameEn').value = t.nameEn || '';
+      document.getElementById('modalQual').value = t.qual || '';
+      updateRankDropdown();
+      document.getElementById('modalRank').value = (t.rank && window.salarySettingsData[t.rank]) ? t.rank : 'अन्य';
+      document.getElementById('modalPost').value = t.post || 'शिक्षक';
+      document.getElementById('modalGender').value = t.gender || 'पुरुष';
+      document.getElementById('modalAppType').value = t.appType || 'स्थायी';
+      togglePermanentFields();
+      document.getElementById('modalCode').value = t.code || '';
+      document.getElementById('modalScale').value = t.scale || 0;
+      document.getElementById('modalGradeCount').value = t.gradeCount || 0;
+      document.getElementById('modalGradeRate').value = t.gradeRate || 0;
+      document.getElementById('modalBimaEligible').value = (t.bima === 'Yes') ? 'Yes' : 'No';
+      document.getElementById('modalBimaCard').value = t.bimaCard || '';
+      document.getElementById('modalEpfNo').value = t.epfNo || '';
+      document.getElementById('modalEpfPercent').value = t.epfPercent || 0;
+      document.getElementById('modalCitNo').value = t.citNo || '';
+      var cv = t.citVal || 0;
+      document.getElementById('modalCitType').value = t.citType || (cv > 50 ? 'amount' : 'percent');
+      document.getElementById('modalCitVal').value = cv;
+      document.getElementById('modalPan').value = t.pan || '';
+      document.getElementById('modalAccount').value = t.account || '';
+      document.getElementById('modalMahangi').value = t.mahangi !== undefined ? t.mahangi : 5000;
+      document.getElementById('modalHt').value = t.ht || 0;
+      document.getElementById('modalLocal').value = t.local || 0;
+      document.getElementById('modalIncentive').value = t.incentive || 0;
+      document.getElementById('newTeacherModal').classList.remove('hidden');
+    };
+
+    window.applySalaryScale = function() {
+      var rank = document.getElementById('modalRank').value;
+      if (window.salarySettingsData[rank]) {
+        document.getElementById('modalScale').value = window.salarySettingsData[rank].basic;
+        document.getElementById('modalGradeRate').value = window.salarySettingsData[rank].gradeRate;
+      }
+    };
+
+    window.saveTeacher = function() {
+      var name = document.getElementById('modalName').value.trim();
+      if (!name) { showToast("नाम हाल्नुहोस्।"); return; }
+      var td = {
+        name: name, nameEn: document.getElementById('modalNameEn').value.trim(),
+        qual: document.getElementById('modalQual').value.trim(),
+        rank: document.getElementById('modalRank').value.trim() === 'अन्य' ? '' : document.getElementById('modalRank').value.trim(),
+        post: document.getElementById('modalPost').value,
+        gender: document.getElementById('modalGender').value,
+        appType: document.getElementById('modalAppType').value,
+        code: document.getElementById('modalCode').value.trim(),
+        scale: parseFloat(document.getElementById('modalScale').value) || 0,
+        gradeCount: parseInt(document.getElementById('modalGradeCount').value) || 0,
+        gradeRate: parseFloat(document.getElementById('modalGradeRate').value) || 0,
+        bima: document.getElementById('modalBimaEligible').value,
+        bimaCard: document.getElementById('modalBimaCard').value.trim(),
+        epfNo: document.getElementById('modalEpfNo').value.trim(),
+        epfPercent: parseFloat(document.getElementById('modalEpfPercent').value) || 0,
+        citNo: document.getElementById('modalCitNo').value.trim(),
+        citType: document.getElementById('modalCitType').value,
+        citVal: parseFloat(document.getElementById('modalCitVal').value) || 0,
+        pan: document.getElementById('modalPan').value.trim(),
+        account: document.getElementById('modalAccount').value.trim(),
+        mahangi: parseFloat(document.getElementById('modalMahangi').value) || 0,
+        ht: parseFloat(document.getElementById('modalHt').value) || 0,
+        local: parseFloat(document.getElementById('modalLocal').value) || 0,
+        incentive: parseFloat(document.getElementById('modalIncentive').value) || 0,
+        advanceDed: 0, partialDays: 30
+      };
+      var eid = document.getElementById('modalTeacherId').value;
+      if (!window.schoolData.teachers) window.schoolData.teachers = [];
+      if (eid) {
+        td.id = parseInt(eid);
+        var idx = window.schoolData.teachers.findIndex(function(t) { return t.id === td.id; });
+        if (idx > -1) {
+          td.advanceDed = window.schoolData.teachers[idx].advanceDed || 0;
+          td.partialDays = window.schoolData.teachers[idx].partialDays !== undefined ? window.schoolData.teachers[idx].partialDays : 30;
+          for (var k in td) window.schoolData.teachers[idx][k] = td[k];
+          showToast(name + ' सच्याइयो।');
+        }
+      } else {
+        td.id = Date.now();
+        window.schoolData.teachers.push(td);
+        window.selectedReportIds.add(td.id);
+        showToast(name + ' थपियो।');
+      }
+      closeNewTeacherModal();
+      renderApp();
+      autoSave();
+    };
+
+    window.removeTeacher = function(id) {
+      if (!confirm("यो शिक्षक हटाउने?")) return;
+      window.schoolData.teachers = (window.schoolData.teachers || []).filter(function(t) { return t.id !== id; });
+      window.selectedTeacherIds.delete(id);
+      window.selectedReportIds.delete(id);
+      showToast("हटाइयो।");
+      renderApp();
+      autoSave();
+    };
+
+    window.closeNewTeacherModal = function() { document.getElementById('newTeacherModal').classList.add('hidden'); };
+
+    // ==================== PRINT ====================
+    window.printSalarySheet = function() { window.print(); };
+    window.printCurrentTab = function() { window.print(); };
+
+    window.printBankLetter = function() {
+      var el = document.getElementById('bankLetterPrintArea');
+      if (!el) return;
+      var w = window.open('', '_blank');
+      w.document.write('<html><head><title>Bank Letter</title><style>@page{size:A4;margin:8mm;} body{font-family:"Noto Sans Devanagari",sans-serif;font-size:10px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #333;padding:2px 4px;font-size:9px;text-align:center;}</style></head><body>' + el.innerHTML + '</body></html>');
+      w.document.close();
+      setTimeout(function() { w.print(); }, 500);
+    };
+
+    window.exportBankLetterToDocx = function() {
+      var el = document.getElementById('bankLetterContent');
+      if (!el) return;
+      var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Bank Letter</title><style>@page{size:A4;margin:1cm;} body{font-family:"Noto Sans Devanagari",Arial;font-size:10px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #333;padding:2px 4px;font-size:9px;text-align:center;}</style></head><body>' + el.innerHTML + '</body></html>';
+      var blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'Bank_Letter_' + (window.schoolData.name || 'School').replace(/\s+/g, '_') + '.doc';
+      link.click();
+      showToast("DOCX Export भयो।");
+    };
+
+    window.runSalaryCalculationEngine = function() {
+      updatePeriodMonths();
+      navigateTab('report');
+      renderApp();
+      showToast("हिसाब भयो।");
+    };
+
+    // ==================== AUTO-SAVE ON UNLOAD ====================
+    window.addEventListener('beforeunload', function() {
+      saveToLocal(false);
+    });
+
+    window.addEventListener('DOMContentLoaded', function() {
+      if (sessionStorage.getItem(AUTH_KEY) === 'true') {
+        showApp();
+      } else {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+      }
+    });
+
+  </script>
+</body>
+</html>
