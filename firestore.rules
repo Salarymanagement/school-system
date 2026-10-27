@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Simple shared-document setup requested by user; anyone with project access can read/write this document.
+    match /sharedPayroll/main {
+      allow read, write: if true;
+    }
+  }
+}
